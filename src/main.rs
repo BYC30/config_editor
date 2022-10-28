@@ -284,11 +284,13 @@ impl DataTable {
         self.data.remove(self.cur_row as usize);
     }
 
-    fn get_show_name_list(&self, key:&Option<String>, id:&String) -> Vec<String> {
+    fn get_show_name_list(&self, key:&Option<String>, id:&String) -> Vec<(String, i32)> {
         let mut ret = Vec::new();
 
+        let mut idx = 0;
         for one in &self.data {
             let name = self.get_one_show_name(one);
+            idx = idx + 1;
             if name.is_none() {continue;}
             let name = name.unwrap();
             if key.is_some() {
@@ -298,19 +300,8 @@ impl DataTable {
                 let rel_id = rel_id.unwrap();
                 if rel_id != id {continue;}
             }
-            ret.push(name);
+            ret.push((name, idx - 1));
         }
-        return ret;
-    }
-
-    fn get_cur_show_name(&self) -> String {
-        let one = self.data.get(self.cur_row as usize);
-        if one.is_none() {return String::new();}
-        let one = one.unwrap();
-        let ret = match self.get_one_show_name(one) {
-            Some(s) => {s},
-            None => {String::new()}
-        };
         return ret;
     }
 
@@ -814,8 +805,7 @@ impl SkillEditorApp {
             if data_table.is_none() {continue;}
             let data_table = data_table.unwrap();
             let list = data_table.get_show_name_list(&one.master_key, &cur_master_val);
-            let cur_key = data_table.get_cur_show_name();
-            let (click, op) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &one.title, &list, &cur_key, &mut data_table.search);
+            let (click, op) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &one.title, &list, data_table.cur_row, &mut data_table.search);
             if click.is_some() {
                 data_table.cur_row = click.unwrap().clone();
             }
@@ -855,7 +845,7 @@ impl SkillEditorApp {
         }
     }
 
-    fn draw_list(ctx: &egui::Context, idx:i32, width: f32, title:&str, list:&Vec<String>, cur: &String, search:&mut String) -> (Option<i32>, i32) {
+    fn draw_list(ctx: &egui::Context, idx:i32, width: f32, title:&str, list:&Vec<(String, i32)>, cur: i32, search:&mut String) -> (Option<i32>, i32) {
         let mut ret = None;
         let mut op = 0;
         let id = format!("list_panel_{}", idx);
@@ -878,14 +868,12 @@ impl SkillEditorApp {
                 ui.separator();
 
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    let mut idx = 0;
-                    for one in list {
+                    for (one, idx) in list {
                         if search.is_empty() || one.contains(search.as_str()) {
-                            if ui.selectable_label(one == cur, one).clicked(){
-                                ret = Some(idx);
+                            if ui.selectable_label(*idx == cur, one).clicked(){
+                                ret = Some(idx.clone());
                             }
                         }
-                        idx = idx + 1;
                     }
                 });
             });
