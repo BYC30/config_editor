@@ -248,13 +248,21 @@ impl DataTable {
         let mut max = 0;
         let mut max_group = 0;
         let mut group_key = String::new();
+        let mut master_key = String::new();
         if self.group_key.is_some() {group_key = self.group_key.clone().unwrap();}
+        if self.master_key.is_some() {master_key = self.master_key.clone().unwrap();}
         for one in &self.data {
             let key_val = utils::map_get_i32(&one, &self.key_name);
             if key_val >= max {max = key_val + 1;}
-            if !group_key.is_empty() {
-                let group_val = utils::map_get_i32(&one, &group_key);
-                if group_val >= max_group {max_group = group_val + 1;}
+            if !group_key.is_empty() && !master_key.is_empty() {
+                let master = one.get(&master_key);
+                if master.is_some() {
+                    let master = master.unwrap();
+                    if master == master_val {
+                        let group_val = utils::map_get_i32(&one, &group_key);
+                        if group_val >= max_group {max_group = group_val + 1;}
+                    }
+                }
             }
         }
 
