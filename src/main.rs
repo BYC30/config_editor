@@ -1,4 +1,4 @@
- #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 use std::{fs, path::PathBuf, collections::HashMap};
 
 use calamine::{open_workbook_auto, Reader};
@@ -85,11 +85,12 @@ impl DataConfig {
             if col > max_size {break;}
             let title = utils::get_cell(&range, 0, col - 1);
             let desc = utils::get_cell(&range, 1, col - 1);
-            let field = utils::get_cell(&range, 2, col - 1);
-            let name = utils::get_cell(&range, 3, col - 1);
-            if field.is_empty() {continue;}
-            println!("ReadField title[{}] desc[{}] field[{}] name[{}]", title, desc, field, name);
-            let field_info = FieldInfo::parse(name, title, desc, field, col - 1)?;
+            let default = utils::get_cell(&range, 2, col - 1);
+            let field = utils::get_cell(&range, 3, col - 1);
+            let name = utils::get_cell(&range, 4, col - 1);
+            if field.is_empty() || name.is_empty() {continue;}
+            println!("ReadField title[{}] desc[{}] field[{}] name[{}] default[{}]", title, desc, field, name, default);
+            let field_info = FieldInfo::parse(name, title, default, desc, field, col - 1)?;
             if field_info.is_key {
                 ret.key_name = field_info.name.clone();
             }
@@ -98,7 +99,7 @@ impl DataConfig {
         let path = self.get_save_json()?;
         ret.load_json(&path)?;
         if ret.data.len() <= 0 { // 没有数据, 尝试从excel中读取
-            let mut row = 3;
+            let mut row = 4;
             let max_size = range.get_size().0 as u32;
             loop {
                 row = row + 1;
@@ -180,7 +181,9 @@ impl DataTable {
                     || tmp.contains("\'") || tmp.contains("\"") {
                     tmp = format!("\"{}\"", tmp);
                 }
-
+                if one.val_type == EFieldType::Bool {
+                    tmp = tmp.to_lowercase();
+                }
                 one_line.push(tmp);
             }
             content.push_str(one_line.join(",").as_str());
@@ -267,7 +270,7 @@ impl DataTable {
         }
 
         for one in &self.info {
-            let mut v = String::new();
+            let mut v = one.default.clone();
             if one.val_type == EFieldType::Number {v = one.suffix.clone();}
             if group_key == one.name {v = max_group.to_string();}
             if one.is_key { v = max.to_string();}
@@ -406,6 +409,7 @@ struct FieldInfo {
     suffix: String,
     col: u32,
     origin: String,
+    default: String,
 }
 
 impl FieldInfo {
@@ -529,7 +533,7 @@ impl FieldInfo {
 }
 
 impl FieldInfo {
-    fn parse(name:String, title:String, desc:String, field_type:String, col:u32) -> Result<FieldInfo> {
+    fn parse(name:String, title:String, default:String, desc:String, field_type:String, col:u32) -> Result<FieldInfo> {
         let mut tmp = field_type.clone();
         let mut prefix = String::new();
         let arr:Vec<&str> = tmp.split("<").collect();
@@ -569,6 +573,7 @@ impl FieldInfo {
             col,
             suffix,
             origin: field_type.clone(),
+            default,
         });
     }
 }
