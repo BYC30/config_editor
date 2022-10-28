@@ -11,6 +11,6 @@ pub enum AppError {
     FieldTypeNotSupport (String),
     #[error("未知错误[{0}]")]
     Other(#[from] anyhow::Error),
-    #[error("加载Excel没有页签")]
-    LoadExcelSheetEmpty,
+    #[error("配置表页签[{0}]格式错误")]
+    ConfigFormatError(String),
 }

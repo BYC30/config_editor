@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, collections::HashMap};
 
 use anyhow::Result;
 use calamine::{open_workbook_auto, Reader, DataType, Range};
@@ -40,4 +40,17 @@ pub fn msg(content:String, title:String){
         .set_description(content.as_str())
         .set_buttons(rfd::MessageButtons::Ok)
         .show();
+}
+
+pub fn map_get_i32(map:&HashMap<String, String>, key:&String) -> i32 {
+    let mut ret = 0;
+    let v = map.get(key);
+    if v.is_some() {
+        let v = v.unwrap();
+        let v = v.parse::<i32>();
+        if v.is_ok() {
+            ret = v.unwrap();
+        }
+    }
+    return ret;
 }

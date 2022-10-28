@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+ #![windows_subsystem = "windows"]
 use std::{fs, path::PathBuf, collections::HashMap};
 
 use calamine::{open_workbook_auto, Reader};
@@ -40,6 +40,7 @@ struct DataConfig{
     tab: String,
     master_key: Option<String>,
     master_id: Option<String>,
+    group_key: Option<String>,
     show_name: String,
 }
 
@@ -62,7 +63,7 @@ impl DataConfig {
         return Ok(path);
     }
 
-    fn load_data_table(&self, master_key:Option<String>) -> Result<DataTable> {
+    fn load_data_table(&self, master_key:Option<String>, group_key:Option<String>) -> Result<DataTable> {
         let mut ret = DataTable{
             show_name: self.show_name.clone(),
             key_name: String::new(),
@@ -72,6 +73,7 @@ impl DataConfig {
             cur_row: 0,
             search:String::new(),
             master_key,
+            group_key,
         };
         let range = utils::open_excel(&self.path, self.tab.as_str())?;
 
@@ -124,6 +126,7 @@ struct DataTable {
     show_name: String,
     key_name: String,
     master_key: Option<String>,
+    group_key: Option<String>,
 
     info: Vec<FieldInfo>,
     data: Vec<HashMap<String, String>>,
@@ -243,19 +246,22 @@ impl DataTable {
     fn create_row(&mut self, master_val: &String) {
         let mut row = HashMap::new();
         let mut max = 0;
+        let mut max_group = 0;
+        let mut group_key = String::new();
+        if self.group_key.is_some() {group_key = self.group_key.clone().unwrap();}
         for one in &self.data {
-            let k = one.get(&self.key_name);
-            if k.is_none() {continue;}
-            let k = k.unwrap();
-            let v = k.parse::<i32>();
-            if v.is_err() {continue;}
-            let v = v.unwrap();
-            if v >= max {max = v + 1;}
+            let key_val = utils::map_get_i32(&one, &self.key_name);
+            if key_val >= max {max = key_val + 1;}
+            if !group_key.is_empty() {
+                let group_val = utils::map_get_i32(&one, &group_key);
+                if group_val >= max_group {max_group = group_val + 1;}
+            }
         }
 
         for one in &self.info {
             let mut v = String::new();
             if one.val_type == EFieldType::Number {v = one.suffix.clone();}
+            if group_key == one.name {v = max_group.to_string();}
             if one.is_key { v = max.to_string();}
             if let Some(master) = &self.master_key {
                 if *master == one.name {v = master_val.clone();}
@@ -674,6 +680,7 @@ impl SkillEditorApp {
             for row in data.rows() {
                 idx = idx + 1;
                 if idx <= 1 {continue;}
+                if row.len() < 8 {bail!(error::AppError::ConfigFormatError(one.tab.clone()))}
                 let id = row[0].to_string();
                 let title = match row[1].get_string() {
                     None => continue,
@@ -695,13 +702,28 @@ impl SkillEditorApp {
                     None => None,
                     Some(x) => Some(x.to_string()),
                 };
-                let show_name = match row[6].get_string() {
+                let group_key = match row[6].get_string() {
+                    None => None,
+                    Some(x) => Some(x.to_string()),
+                };
+                let show_name = match row[7].get_string() {
                     None => String::new(),
                     Some(x) => x.to_string(),
                 };
 
-                let data_cfg = DataConfig { id:id.clone(), title, path, tab, master_key:master_key.clone(), master_id, parent: one.tab.clone(), show_name };
-                let table = data_cfg.load_data_table(master_key)?;
+                let data_cfg = DataConfig {
+                    id:id.clone(), 
+                    title, 
+                    path, 
+                    tab, 
+                    master_key: master_key.clone(), 
+                    master_id,
+                    group_key: group_key.clone(),
+                    parent:
+                    one.tab.clone(),
+                    show_name
+                };
+                let table = data_cfg.load_data_table(master_key, group_key)?;
                 let key = data_cfg.key();
                 self.data_map.insert(key, table);
                 v.push(data_cfg);
