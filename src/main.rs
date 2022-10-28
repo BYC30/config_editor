@@ -245,8 +245,8 @@ impl DataTable {
 
     fn create_row(&mut self, master_val: &String) {
         let mut row = HashMap::new();
-        let mut max = 0;
-        let mut max_group = 0;
+        let mut max = 1;
+        let mut max_group = 1;
         let mut group_key = String::new();
         let mut master_key = String::new();
         if self.group_key.is_some() {group_key = self.group_key.clone().unwrap();}
