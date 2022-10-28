@@ -62,7 +62,7 @@ impl DataConfig {
         return Ok(path);
     }
 
-    fn load_data_table(&self) -> Result<DataTable> {
+    fn load_data_table(&self, master_key:Option<String>) -> Result<DataTable> {
         let mut ret = DataTable{
             show_name: self.show_name.clone(),
             key_name: String::new(),
@@ -71,6 +71,7 @@ impl DataConfig {
             cur: 0,
             cur_row: 0,
             search:String::new(),
+            master_key,
         };
         let range = utils::open_excel(&self.path, self.tab.as_str())?;
 
@@ -122,6 +123,7 @@ impl DataConfig {
 struct DataTable {
     show_name: String,
     key_name: String,
+    master_key: Option<String>,
 
     info: Vec<FieldInfo>,
     data: Vec<HashMap<String, String>>,
@@ -226,7 +228,7 @@ impl DataTable {
         Ok(())
     }
 
-    fn get_cur_key(&self) -> String {
+    fn get_cur_val(&self) -> String {
         let mut ret = String::new();
         let row = self.data.get(self.cur_row as usize);
         if row.is_none() {return ret;}
@@ -238,7 +240,7 @@ impl DataTable {
         return ret;
     }
 
-    fn create_row(&mut self) {
+    fn create_row(&mut self, master_val: &String) {
         let mut row = HashMap::new();
         let mut max = 0;
         for one in &self.data {
@@ -253,7 +255,11 @@ impl DataTable {
 
         for one in &self.info {
             let mut v = String::new();
+            if one.val_type == EFieldType::Number {v = one.suffix.clone();}
             if one.is_key { v = max.to_string();}
+            if let Some(master) = &self.master_key {
+                if *master == one.name {v = master_val.clone();}
+            }
             row.insert(one.name.clone(), v);
         }
         self.data.push(row);
@@ -376,7 +382,7 @@ impl DataTable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum EFieldType {
     Bool,
     Number,
@@ -392,6 +398,7 @@ struct FieldInfo {
     val_type: EFieldType,
     is_key: bool,
     is_array: bool,
+    suffix: String,
     col: u32,
     origin: String,
 }
@@ -555,6 +562,7 @@ impl FieldInfo {
             is_key,
             is_array,
             col,
+            suffix,
             origin: field_type.clone(),
         });
     }
@@ -692,8 +700,8 @@ impl SkillEditorApp {
                     Some(x) => x.to_string(),
                 };
 
-                let data_cfg = DataConfig { id:id.clone(), title, path, tab, master_key, master_id, parent: one.tab.clone(), show_name };
-                let table = data_cfg.load_data_table()?;
+                let data_cfg = DataConfig { id:id.clone(), title, path, tab, master_key:master_key.clone(), master_id, parent: one.tab.clone(), show_name };
+                let table = data_cfg.load_data_table(master_key)?;
                 let key = data_cfg.key();
                 self.data_map.insert(key, table);
                 v.push(data_cfg);
@@ -761,13 +769,13 @@ impl SkillEditorApp {
         let mut idx = 0;
         for one in cfg {
             idx = idx + 1;
-            let mut cur_key = String::new();
+            let mut cur_master_val = String::new();
             if let Some(master_id) = &one.master_id {
                 let key = DataConfig::get_key(&one.parent, master_id);
                 let master_table = self.data_map.get_mut(&key);
                 if master_table.is_some() {
                     let master_table = master_table.unwrap();
-                    cur_key = master_table.get_cur_key();
+                    cur_master_val = master_table.get_cur_val();
                 }
             }
 
@@ -775,14 +783,14 @@ impl SkillEditorApp {
             let data_table = self.data_map.get_mut(&key);
             if data_table.is_none() {continue;}
             let data_table = data_table.unwrap();
-            let list = data_table.get_show_name_list(&one.master_key, &cur_key);
+            let list = data_table.get_show_name_list(&one.master_key, &cur_master_val);
             let cur_key = data_table.get_cur_show_name();
             let (click, op) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &one.title, &list, &cur_key, &mut data_table.search);
             if click.is_some() {
                 data_table.cur_row = click.unwrap().clone();
             }
             if op == 1 {
-                data_table.create_row();
+                data_table.create_row(&cur_master_val);
             }
             if op == 2 {
                 data_table.delete_cur_row();
