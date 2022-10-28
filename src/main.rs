@@ -240,10 +240,24 @@ impl DataTable {
 
     fn create_row(&mut self) {
         let mut row = HashMap::new();
+        let mut max = 0;
+        for one in &self.data {
+            let k = one.get(&self.key_name);
+            if k.is_none() {continue;}
+            let k = k.unwrap();
+            let v = k.parse::<i32>();
+            if v.is_err() {continue;}
+            let v = v.unwrap();
+            if v >= max {max = v + 1;}
+        }
+
         for one in &self.info {
-            row.insert(one.name.clone(), String::new());
+            let mut v = String::new();
+            if one.is_key { v = max.to_string();}
+            row.insert(one.name.clone(), v);
         }
         self.data.push(row);
+        self.cur_row = self.data.len() as i32 - 1;
     }
 
     fn delete_cur_row(&mut self) {
