@@ -1,0 +1,18 @@
+[package]
+name = "cfg_editor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+eframe = "0.19.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rfd = "0.5.0"
+simple-message-box = "0.0.2"
+thiserror = "1.0.30"
+anyhow = "1.0.45"
+calamine = "0.18.0"
+load_file = "1.0.1"
+xlsxwriter = "0.3.5"
