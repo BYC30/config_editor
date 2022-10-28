@@ -1,8 +1,8 @@
 #![windows_subsystem = "windows"]
-use std::{fs, path::PathBuf, hash::Hash};
+use std::{fs, path::PathBuf, collections::HashMap};
 
 use calamine::{open_workbook_auto, Reader};
-use eframe::{egui::{self, Ui}, App, epaint::{ahash::{HashMap, HashMapExt}, util}};
+use eframe::{egui::{self, Ui}, App};
 use anyhow::{Result, bail};
 use serde_json::json;
 use xlsxwriter::{FormatColor, FormatBorder, FormatAlignment};
@@ -21,7 +21,6 @@ struct SkillEditorApp {
 
     // UI 相关数据
     cur_view: String,
-    show_input: bool,
 }
 #[derive(Debug)]
 struct DataGroup {
@@ -565,7 +564,7 @@ impl SkillEditorApp {
             .or_default()
             .push("my_font".to_owned());
         cc.egui_ctx.set_fonts(fonts);
-
+        cc.egui_ctx.set_visuals(egui::Visuals::dark());
         Self::default()
     }
 
@@ -607,38 +606,6 @@ impl SkillEditorApp {
             Ok(_) => {self.msg("导出成功".to_string(), "导出成功".to_string())},
             Err(e) => {self.msg(format!("导出失败:{:?}", e), "导出失败".to_string())},
         }
-    }
-
-    fn load_from_excel(&mut self, path:PathBuf, tab:String) -> Result<()> {
-        println!("open_excel {:?} sheet {}", path, tab);
-        let mut workbook= open_workbook_auto(path)?;
-        let names = workbook.sheet_names();
-        let first = names.get(0);
-        if first.is_none() {bail!(error::AppError::LoadExcelSheetEmpty);}
-        let first = first.unwrap().clone();
-        let range = workbook.worksheet_range(&first)
-            .ok_or(error::AppError::SheetNotFound(first))??;
-
-
-        // let mut row = 4;
-        // let max_size = range.get_size().1 as u32;
-        // loop {
-        //     row = row + 1;
-        //     if row > max_size {break;}
-        //     let mut map = HashMap::new();
-            
-        //     let mut key = String::new();
-        //     for one in &info {
-        //         let v = utils::get_cell(&range, row, one.col);
-        //         if one.is_key {
-        //             key = v.clone();
-        //         }
-        //         map.insert(one.name.clone(), v);
-        //     }
-        //     if key.is_empty() {continue;}
-        //     ret.data.push(map);
-        // }
-        Ok(())
     }
 
     fn _load_config(&mut self) -> Result<()> {
@@ -948,7 +915,6 @@ impl Default for SkillEditorApp {
             data_map: HashMap::new(),
 
             cur_view: String::new(),
-            show_input: false,
         }
     }
 }
@@ -962,6 +928,7 @@ impl eframe::App for SkillEditorApp {
 }
 
 fn main() {
-    let native_options = eframe::NativeOptions::default();
-    eframe::run_native("技能编辑器", native_options, Box::new(|cc| Box::new(SkillEditorApp::new(cc))));
+    let mut opt = eframe::NativeOptions::default();
+    opt.maximized = true;
+    eframe::run_native("技能编辑器", opt, Box::new(|cc| Box::new(SkillEditorApp::new(cc))));
 }
