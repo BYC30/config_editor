@@ -317,7 +317,7 @@ impl DataTable {
             Some(s) => s.clone(),
         };
 
-        let name = format!("{}({})", name, v);
+        let name = format!("[{}]{}", v, name);
         return Some(name);
     }
 
