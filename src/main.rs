@@ -246,7 +246,7 @@ impl DataTable {
         return ret;
     }
 
-    fn create_row(&mut self, master_val: &String) {
+    fn _create_row(&mut self, master_val: &String) -> HashMap<String, String> {
         let mut row = HashMap::new();
         let mut max = 1;
         let mut max_group = 1;
@@ -274,17 +274,51 @@ impl DataTable {
             if one.val_type == EFieldType::Number {v = one.suffix.clone();}
             if group_key == one.name {v = max_group.to_string();}
             if one.is_key { v = max.to_string();}
-            if let Some(master) = &self.master_key {
-                if *master == one.name {v = master_val.clone();}
-            }
+            if master_key == one.name {v = master_val.clone();}
             row.insert(one.name.clone(), v);
         }
+        return row;
+    }
+
+    fn create_row(&mut self, master_val: &String) {
+        let row = self._create_row(master_val);
         self.data.push(row);
         self.cur_row = self.data.len() as i32 - 1;
     }
 
     fn delete_cur_row(&mut self) {
         self.data.remove(self.cur_row as usize);
+    }
+
+    fn copy_row(&mut self, idx: usize, master_val: &String) {
+        println!("copy_row {}", idx);
+        let len = self.data.len();
+        let cur_row = idx;
+        if cur_row >= len {return;}
+        let mut new_row = self._create_row(&master_val);
+        let cur_row = self.data.get(cur_row as usize);
+        if cur_row.is_none() {return;}
+        let cur_row = cur_row.unwrap();
+
+        let mut group_key = String::new();
+        let mut master_key = String::new();
+        if self.group_key.is_some() {group_key = self.group_key.clone().unwrap();}
+        if self.master_key.is_some() {master_key = self.master_key.clone().unwrap();}
+        for one in &self.info {
+            if one.is_key {continue;}
+            if group_key == one.name {continue;}
+            if master_key == one.name {continue;}
+            let cur = cur_row.get(&one.name);
+            if cur.is_none() {continue;}
+            let cur = cur.unwrap();
+            new_row.insert(one.name.clone(), cur.clone());
+        }
+        self.data.push(new_row);
+        self.cur_row = self.data.len() as i32 - 1;
+    }
+
+    fn copy_cur_row(&mut self, master_val:&String) {
+        self.copy_row(self.cur_row as usize, master_val);
     }
 
     fn get_show_name_list(&self, key:&Option<String>, id:&String) -> Vec<(String, i32)> {
@@ -793,12 +827,15 @@ impl SkillEditorApp {
         let width = size.x / unit - unit * 4.0;
 
         let mut idx = 0;
+        let mut copy_id = String::new();
+        let mut copy_master_val = String::new();
         for one in cfg {
             idx = idx + 1;
             let mut cur_master_val = String::new();
+            let mut master_key = String::new();
             if let Some(master_id) = &one.master_id {
-                let key = DataConfig::get_key(&one.parent, master_id);
-                let master_table = self.data_map.get_mut(&key);
+                master_key = DataConfig::get_key(&one.parent, master_id);
+                let master_table = self.data_map.get_mut(&master_key);
                 if master_table.is_some() {
                     let master_table = master_table.unwrap();
                     cur_master_val = master_table.get_cur_val();
@@ -810,6 +847,12 @@ impl SkillEditorApp {
             if data_table.is_none() {continue;}
             let data_table = data_table.unwrap();
             let list = data_table.get_show_name_list(&one.master_key, &cur_master_val);
+            if !copy_id.is_empty() && master_key == copy_id {
+                let copy_list = data_table.get_show_name_list(&one.master_key, &copy_master_val);
+                for (_k, idx) in &copy_list {
+                    data_table.copy_row(idx.clone() as usize, &cur_master_val);
+                }
+            }
             let (click, op) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &one.title, &list, data_table.cur_row, &mut data_table.search);
             if click.is_some() {
                 data_table.cur_row = click.unwrap().clone();
@@ -833,6 +876,7 @@ impl SkillEditorApp {
                         }
                     }
             }
+
             if op == 4 {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("xlsx", &["xlsx"])
@@ -845,6 +889,12 @@ impl SkillEditorApp {
                             }
                         }
                     }
+            }
+
+            if op == 5 {
+                copy_master_val = data_table.get_cur_val();
+                data_table.copy_cur_row(&cur_master_val);
+                copy_id = one.key();
             }
             SkillEditorApp::draw_data(ctx, idx, data_table, width + width * 0.4);
         }
@@ -861,10 +911,11 @@ impl SkillEditorApp {
 
                 ui.horizontal(|ui|{
                     ui.heading(title);
-                    if ui.button("+").clicked() {op=1;}
-                    if ui.button("-").clicked() {op=2;}
-                    if ui.button("↓").clicked() {op=3;}
-                    if ui.button("↑").clicked() {op=4;}
+                    if ui.button("+").on_hover_text("新增配置").clicked() {op=1;}
+                    if ui.button("-").on_hover_text("删除配置").clicked() {op=2;}
+                    if ui.button("‖").on_hover_text("复制配置").clicked() {op=5;}
+                    if ui.button("↓").on_hover_text("导入配置").clicked() {op=3;}
+                    if ui.button("↑").on_hover_text("导出配置").clicked() {op=4;}
                 });
                 ui.horizontal(|ui|{
                     ui.text_edit_singleline(search);
