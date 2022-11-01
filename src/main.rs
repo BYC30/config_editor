@@ -152,13 +152,17 @@ impl DataTable {
         let mut name_line = Vec::new();
         for one in &self.info {
             if !one.export {continue;}
-            let mut tmp = one.origin.clone();
-            if tmp.contains(",") || tmp.contains("\r") || tmp.contains("\n")
-                || tmp.contains("\'") || tmp.contains("\"") {
-                tmp = format!("\"{}\"", tmp);
-            }
-            type_line.push(tmp);
-            name_line.push(one.name.clone());
+
+            let mut field_type = one.origin.clone();
+            let mut field_name = one.name.clone();
+            let f1 = field_type.contains(",") || field_type.contains("\r") || field_type.contains("\n")
+                || field_type.contains("\'") || field_type.contains("\"");
+            let f2 = out_type == "scsv";
+            if f1 || f2 { field_type = format!("\"{}\"", field_type);}
+            if f2 { field_name = format!("\"{}\"", field_name); }
+
+            type_line.push(field_type);
+            name_line.push(field_name);
         }
         content.push_str(type_line.join(",").as_str());
         content.push_str("\r\n");
@@ -176,17 +180,20 @@ impl DataTable {
                 };
                 
                 let mut tmp;
+                let mut flag = false;
                 if out_type == "scsv" {
                     tmp = v.trim()
                     .replace("'", "\\'")
                     .replace("\"", "\"\"");
+                    flag = one.is_array || one.val_type == EFieldType::Str || one.val_type == EFieldType::Table;
+                    flag = flag && !tmp.is_empty();
                 }else {
                     tmp = v.trim()
                         .replace("'", "\\'")
                         .replace("\"", "\\\"");
                 }
                 if tmp.contains(",") || tmp.contains("\r") || tmp.contains("\n")
-                    || tmp.contains("\'") || tmp.contains("\"") {
+                    || tmp.contains("\'") || tmp.contains("\"") || flag {
                     tmp = format!("\"{}\"", tmp);
                 }
                 if one.val_type == EFieldType::Bool {
