@@ -80,9 +80,9 @@ impl DataConfig {
         let mut col:u32 = 0;
         let max_size = range.get_size().1 as u32;
         println!("max_size[{}]", max_size);
-        let mut group = FieldInfo::parse("__Group__".to_string(), "分组".to_string(), "默认分组".to_string(), "分组".to_string(), "S".to_string(), col)?;
+        let mut group = FieldInfo::parse("__Group__".to_string(), "分组".to_string(), "默认分组".to_string(), "分组".to_string(), "S".to_string(), max_size)?;
         group.export = false;
-        let mut sub_group = FieldInfo::parse("__SubGroup__".to_string(), "子分组".to_string(), "默认子分组".to_string(), "子分组".to_string(), "S".to_string(), col)?;
+        let mut sub_group = FieldInfo::parse("__SubGroup__".to_string(), "子分组".to_string(), "默认子分组".to_string(), "子分组".to_string(), "S".to_string(), max_size + 1)?;
         sub_group.export = false;
         ret.info.push(group);
         ret.info.push(sub_group);
@@ -444,7 +444,7 @@ impl DataTable {
         let mut sheet = wb.add_worksheet(Some(&tab))?;
         sheet.freeze_panes(4, 1);
         sheet.set_column(0, 1, 25.0, None)?;
-        let format_title = wb.add_format().set_bg_color(FormatColor::Blue)
+        let format_title = wb.add_format().set_bg_color(FormatColor::Custom(0x0070C0))
             .set_text_wrap()
             .set_border(FormatBorder::Thin)
             .set_align(FormatAlignment::CenterAcross)
