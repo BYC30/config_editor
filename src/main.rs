@@ -4,7 +4,9 @@ use std::{fs, path::PathBuf, collections::HashMap};
 use calamine::{open_workbook_auto, Reader};
 use eframe::{egui::{self, Ui}, App};
 use anyhow::{Result, bail};
+use itertools::Itertools;
 use serde_json::json;
+use walkdir::WalkDir;
 use xlsxwriter::{FormatColor, FormatBorder, FormatAlignment};
 
 mod error;
@@ -57,9 +59,7 @@ impl DataConfig {
         let mut path = std::env::current_exe()?;
         path.pop();
         path.push("save_data");
-        path.push(&self.parent);
-        let f = format!("{}.json", self.tab);
-        path.push(f);
+        path.push(format!("{}_{}", self.parent, self.tab));
         return Ok(path);
     }
 
@@ -80,6 +80,12 @@ impl DataConfig {
         let mut col:u32 = 0;
         let max_size = range.get_size().1 as u32;
         println!("max_size[{}]", max_size);
+        let mut group = FieldInfo::parse("__Group__".to_string(), "分组".to_string(), "默认分组".to_string(), "分组".to_string(), "S".to_string(), col)?;
+        group.export = false;
+        let mut sub_group = FieldInfo::parse("__SubGroup__".to_string(), "子分组".to_string(), "默认子分组".to_string(), "子分组".to_string(), "S".to_string(), col)?;
+        sub_group.export = false;
+        ret.info.push(group);
+        ret.info.push(sub_group);
         loop {
             col = col + 1;
             if col > max_size {break;}
@@ -145,6 +151,7 @@ impl DataTable {
         let mut type_line = Vec::new();
         let mut name_line = Vec::new();
         for one in &self.info {
+            if !one.export {continue;}
             let mut tmp = one.origin.clone();
             if tmp.contains(",") || tmp.contains("\r") || tmp.contains("\n")
                 || tmp.contains("\'") || tmp.contains("\"") {
@@ -162,6 +169,7 @@ impl DataTable {
         for row in &self.data {
             let mut one_line = Vec::new();
             for one in &self.info {
+                if !one.export {continue;}
                 let v = match row.get(&one.name){
                     Some(s) => {s.clone()},
                     None => {String::new()},
@@ -200,37 +208,64 @@ impl DataTable {
     }
 
     fn _save_json(&self, path: PathBuf) -> Result<()> {
-        let mut js = json!([]);
-        let arr = js.as_array_mut().unwrap();
-        for row in &self.data {
-            let mut obj = json!({});
-            let obj_map = obj.as_object_mut().unwrap();
-            for one in &self.info {
-                let v = match row.get(&one.name){
-                    Some(s) => {s.clone()},
-                    None => {String::new()},
-                };
-                
-                let tmp = v.trim();
-                obj_map.insert(one.name.clone(), serde_json::Value::String(tmp.to_string()));
-            }
-            arr.push(obj);
+        if !path.exists() {
+            std::fs::create_dir_all(path.clone())?;
         }
 
-        let mut p = path.clone();
-        p.pop();
-        if !p.exists() {
-            std::fs::create_dir_all(p.clone())?;
+        // 清空旧数据
+        for entry in WalkDir::new(&path) {
+            let entry = entry?;
+            let p = entry.path();
+            if p.is_dir() {continue;}
+            fs::remove_file(p)?;
         }
-        fs::write(path, serde_json::to_string(arr)?)?;
+
+        let list = self.get_show_name_list(&None, &String::new());
+        for (group, one) in list.iter().sorted_by_key(|a|{a.0}) {
+            for (sub_group, two) in one.iter().sorted_by_key(|a|{a.0}) {
+                let mut js = json!([]);
+                let arr = js.as_array_mut().unwrap();
+                for (_name, idx, _key_num) in two {
+                    let mut obj = json!({});
+                    let obj_map = obj.as_object_mut().unwrap();
+                    let row = self.data.get(*idx as usize).unwrap();
+                    for one in &self.info {
+                        let v = match row.get(&one.name){
+                            Some(s) => {s.clone()},
+                            None => {String::new()},
+                        };
+                        
+                        let tmp = v.trim();
+                        obj_map.insert(one.name.clone(), serde_json::Value::String(tmp.to_string()));
+                    }
+                    arr.push(obj);
+                }
+                let mut p = path.clone();
+                p.push(format!("{}_{}.json", group, sub_group));
+                println!("save[{:?}] to file", p);
+                fs::write(p, serde_json::to_string(arr)?)?;
+            }
+        }
+
         Ok(())
     }
 
     fn load_json(&mut self, path:&PathBuf) -> Result<()> {
         if !path.exists() {return Ok(());}
-        let s = std::fs::read_to_string(path)?;
-        let data: Vec<HashMap<String, String>> = serde_json::from_str(&s)?;
-        self.data = data;
+        println!("load json from path[{:?}]", path);
+        for entry in WalkDir::new(path) {
+            let entry = entry?;
+            let p = entry.path();
+            if p.is_dir() {continue;}
+            let a1 = entry.file_name();
+            let a2 = entry.file_type();
+            println!("read[{:?}] to string a1[{:?}] a2[{:?}]", p, a1, a2);
+            let s = std::fs::read_to_string(p)?;
+            let data: Vec<HashMap<String, String>> = serde_json::from_str(&s)?;
+            for one in data {
+                self.data.push(one);
+            }
+        }
         Ok(())
     }
 
@@ -321,8 +356,8 @@ impl DataTable {
         self.copy_row(self.cur_row as usize, master_val);
     }
 
-    fn get_show_name_list(&self, key:&Option<String>, id:&String) -> Vec<(String, i32)> {
-        let mut ret = Vec::new();
+    fn get_show_name_list(&self, key:&Option<String>, id:&String) -> HashMap<String, HashMap<String, Vec<(String, i32, i32)>>> {
+        let mut total: HashMap<String, HashMap<String, Vec<(String, i32, i32)>>> = HashMap::new();
 
         let mut idx = 0;
         for one in &self.data {
@@ -337,9 +372,25 @@ impl DataTable {
                 let rel_id = rel_id.unwrap();
                 if rel_id != id {continue;}
             }
-            ret.push((name, idx - 1));
+            let group = utils::map_get_string(one, "__Group__", "默认分组");
+            let sub_group = utils::map_get_string(one, "__SubGroup__", "默认子分组");
+            let key_num = utils::map_get_i32(one, &self.key_name);
+            if !total.contains_key(&group) {
+                total.insert(group.clone(), HashMap::new());
+            }
+            let layer1 = total.get_mut(&group).unwrap();
+            if !layer1.contains_key(&sub_group) {
+                layer1.insert(sub_group.clone(), Vec::new());
+            }
+            let layer2 = layer1.get_mut(&sub_group).unwrap();
+            layer2.push((name, idx - 1, key_num));
         }
-        return ret;
+        for (_, one) in &mut total {
+            for (_, two) in one {
+                two.sort_by(|a, b| {a.2.cmp(&b.2)})
+            }
+        }
+        return total;
     }
 
     fn get_one_show_name(&self, map:&HashMap<String, String>) -> Option<String> {
@@ -393,7 +444,7 @@ impl DataTable {
         let mut sheet = wb.add_worksheet(Some(&tab))?;
         sheet.freeze_panes(4, 1);
         sheet.set_column(0, 1, 25.0, None)?;
-        let format_title = wb.add_format().set_bg_color(FormatColor::Custom(0xffc000))
+        let format_title = wb.add_format().set_bg_color(FormatColor::Blue)
             .set_text_wrap()
             .set_border(FormatBorder::Thin)
             .set_align(FormatAlignment::CenterAcross)
@@ -444,6 +495,7 @@ struct FieldInfo {
     col: u32,
     origin: String,
     default: String,
+    export: bool,
 }
 
 impl FieldInfo {
@@ -608,6 +660,7 @@ impl FieldInfo {
             suffix,
             origin: field_type.clone(),
             default,
+            export: true,
         });
     }
 }
@@ -849,8 +902,12 @@ impl SkillEditorApp {
             let list = data_table.get_show_name_list(&one.master_key, &cur_master_val);
             if !copy_id.is_empty() && master_key == copy_id {
                 let copy_list = data_table.get_show_name_list(&one.master_key, &copy_master_val);
-                for (_k, idx) in &copy_list {
-                    data_table.copy_row(idx.clone() as usize, &cur_master_val);
+                for (_, one) in copy_list {
+                    for (_, two) in one {
+                        for (_, idx, _) in two {
+                            data_table.copy_row(idx.clone() as usize, &cur_master_val);
+                        }
+                    }
                 }
             }
             let (click, op) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &one.title, &list, data_table.cur_row, &mut data_table.search);
@@ -900,7 +957,7 @@ impl SkillEditorApp {
         }
     }
 
-    fn draw_list(ctx: &egui::Context, idx:i32, width: f32, title:&str, list:&Vec<(String, i32)>, cur: i32, search:&mut String) -> (Option<i32>, i32) {
+    fn draw_list(ctx: &egui::Context, idx:i32, width: f32, title:&str, list:&HashMap<String, HashMap<String, Vec<(String, i32, i32)>>>, cur: i32, search:&mut String) -> (Option<i32>, i32) {
         let mut ret = None;
         let mut op = 0;
         let id = format!("list_panel_{}", idx);
@@ -924,12 +981,22 @@ impl SkillEditorApp {
                 ui.separator();
 
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    for (one, idx) in list {
-                        if search.is_empty() || one.contains(search.as_str()) {
-                            if ui.selectable_label(*idx == cur, one).clicked(){
-                                ret = Some(idx.clone());
+                    for (group, one) in list.iter().sorted_by_key(|a|{a.0}) {
+                        egui::CollapsingHeader::new(group)
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            for (sub_group, two) in one.iter().sorted_by_key(|a|{a.0}) {
+                                egui::CollapsingHeader::new(sub_group)
+                                .default_open(true)
+                                .show(ui, |ui| {
+                                    for (name, idx, _key_num) in two {
+                                        if ui.selectable_label(*idx == cur, name).clicked(){
+                                            ret = Some(idx.clone());
+                                        }
+                                    }
+                                });
                             }
-                        }
+                        });
                     }
                 });
             });

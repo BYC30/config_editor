@@ -54,3 +54,12 @@ pub fn map_get_i32(map:&HashMap<String, String>, key:&String) -> i32 {
     }
     return ret;
 }
+
+pub fn map_get_string(map:&HashMap<String, String>, key:&str, default:&str) -> String {
+    let mut ret = default.to_string();
+    let v = map.get(key);
+    if v.is_some() {
+        ret = v.unwrap().clone();
+    }
+    return ret;
+}
