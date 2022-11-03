@@ -583,8 +583,7 @@ impl FieldInfo {
 
     fn create_ui(&self, map: &mut HashMap<String, String>, ui: &mut egui::Ui, selected: bool) -> bool {
         let mut flag = false;
-        let mut title = self.title.clone();
-        if title.is_empty() {title = self.name.clone();}
+        let title = format!("{}\r\n{}", self.title, self.name);
         if ui.selectable_label(selected, &title).clicked(){
             flag = true;
         }
