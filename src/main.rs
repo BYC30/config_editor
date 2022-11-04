@@ -74,8 +74,16 @@ impl DataConfig {
             search:String::new(),
             master_key,
             group_key,
+            commit: Vec::new(),
         };
+
+        // 读取字段配置
+
+        // 读取原始表格注释
         let range = utils::open_excel(&self.path, self.tab.as_str())?;
+
+        // 读取内容
+        
 
         let mut col:u32 = 0;
         let max_size = range.get_size().1 as u32;
@@ -137,6 +145,8 @@ struct DataTable {
 
     info: Vec<FieldInfo>,
     data: Vec<HashMap<String, String>>,
+
+    commit: Vec<Vec<String>>,
 
     // UI 相关
     cur: i32,
@@ -418,8 +428,19 @@ impl DataTable {
         let range = workbook.worksheet_range(&tab)
             .ok_or(error::AppError::SheetNotFound(tab))??;
 
+        let mut row = 0;
+        let mut flag = false;
+        for one in range.rows() {
+            let cell = one[0].to_string();
+            if cell == self.key_name {
+                flag = true;
+                break;
+            }
+            row = row + 1;
+        }
+        if !flag {bail!(error::AppError::ImportExcelKeyNotFound(self.key_name.clone()))};
+
         let mut data = Vec::new();
-        let mut row = 3;
         let max_size = range.get_size().0 as u32;
         loop {
             row = row + 1;
