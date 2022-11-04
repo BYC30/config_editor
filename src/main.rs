@@ -616,7 +616,10 @@ impl FieldInfo {
         };
 
         if self.is_array {
-            let mut arr:Vec<&str> = v.split(";").collect();
+            let mut arr:Vec<&str> = Vec::new();
+            if !v.is_empty() {
+                arr = v.split(";").collect();
+            }
             let mut new = Vec::new();
             ui.vertical_centered(|ui| {
                 ui.horizontal(|ui|{
