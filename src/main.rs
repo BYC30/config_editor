@@ -260,7 +260,8 @@ impl DataTable {
                 let mut p = path.clone();
                 p.push(format!("{}_{}.json", group, sub_group));
                 println!("save[{:?}] to file", p);
-                fs::write(p, serde_json::to_string(arr)?)?;
+                
+                fs::write(p, serde_json::to_string_pretty(arr)?)?;
             }
         }
 
