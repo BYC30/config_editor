@@ -1,8 +1,8 @@
 #![windows_subsystem = "windows"]
-use std::{fs, path::PathBuf, collections::HashMap};
+use std::{fs, path::PathBuf, collections::{HashMap, HashSet}};
 
 use calamine::{open_workbook_auto, Reader};
-use eframe::{egui::{self, Ui}, App};
+use eframe::{egui::{self, Ui, RichText}, App, epaint::Color32};
 use anyhow::{Result, bail};
 use itertools::Itertools;
 use serde_json::json;
@@ -69,12 +69,13 @@ impl DataConfig {
             key_name: String::new(),
             info: Vec::new(),
             data: Vec::new(),
-            cur: 0,
-            cur_row: 0,
-            search:String::new(),
             master_key,
             group_key,
             commit: Vec::new(),
+            cur: 0,
+            cur_row: 0,
+            search:String::new(),
+            show_all: false,
         };
 
         // 读取字段配置
@@ -152,6 +153,7 @@ struct DataTable {
     cur: i32,
     cur_row: i32,
     search: String,
+    show_all: bool,
 }
 
 impl DataTable {
@@ -237,7 +239,7 @@ impl DataTable {
             fs::remove_file(p)?;
         }
 
-        let list = self.get_show_name_list(&None, &String::new());
+        let list = self.get_show_name_list(&None, &String::new(), true);
         for (group, one) in list.iter().sorted_by_key(|a|{a.0}) {
             for (sub_group, two) in one.iter().sorted_by_key(|a|{a.0}) {
                 let mut js = json!([]);
@@ -374,7 +376,7 @@ impl DataTable {
         self.copy_row(self.cur_row as usize, master_val);
     }
 
-    fn get_show_name_list(&self, key:&Option<String>, id:&String) -> HashMap<String, HashMap<String, Vec<(String, i32, i32)>>> {
+    fn get_show_name_list(&self, key:&Option<String>, id:&String, show_all: bool) -> HashMap<String, HashMap<String, Vec<(String, i32, i32)>>> {
         let mut total: HashMap<String, HashMap<String, Vec<(String, i32, i32)>>> = HashMap::new();
 
         let mut idx = 0;
@@ -383,7 +385,7 @@ impl DataTable {
             idx = idx + 1;
             if name.is_none() {continue;}
             let name = name.unwrap();
-            if key.is_some() {
+            if key.is_some() && !show_all {
                 let k = key.clone().unwrap();
                 let rel_id = one.get(&k);
                 if rel_id.is_none() {continue;}
@@ -930,9 +932,15 @@ impl SkillEditorApp {
             let data_table = self.data_map.get_mut(&key);
             if data_table.is_none() {continue;}
             let data_table = data_table.unwrap();
-            let list = data_table.get_show_name_list(&one.master_key, &cur_master_val);
+            let mut show_all = None;
+            let mut show_all_bool = false;
+            if data_table.master_key.is_some() {
+                show_all = Some(data_table.show_all);
+                show_all_bool = data_table.show_all;
+            }
+            let list = data_table.get_show_name_list(&one.master_key, &cur_master_val, show_all_bool);
             if !copy_id.is_empty() && master_key == copy_id {
-                let copy_list = data_table.get_show_name_list(&one.master_key, &copy_master_val);
+                let copy_list = data_table.get_show_name_list(&one.master_key, &copy_master_val, false);
                 for (_, one) in copy_list {
                     for (_, two) in one {
                         for (_, idx, _) in two {
@@ -941,7 +949,9 @@ impl SkillEditorApp {
                     }
                 }
             }
-            let (click, op) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &one.title, &list, data_table.cur_row, &mut data_table.search);
+
+            let (click, op) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &one.title, &list, data_table.cur_row, &mut data_table.search, &mut show_all);
+            if show_all.is_some() { data_table.show_all = show_all.unwrap(); }
             if click.is_some() {
                 data_table.cur_row = click.unwrap().clone();
             }
@@ -988,10 +998,11 @@ impl SkillEditorApp {
         }
     }
 
-    fn draw_list(ctx: &egui::Context, idx:i32, width: f32, title:&str, list:&HashMap<String, HashMap<String, Vec<(String, i32, i32)>>>, cur: i32, search:&mut String) -> (Option<i32>, i32) {
+    fn draw_list(ctx: &egui::Context, idx:i32, width: f32, title:&str, list:&HashMap<String, HashMap<String, Vec<(String, i32, i32)>>>, cur: i32, search:&mut String, mut show_all: &mut Option<bool>) -> (Option<i32>, i32) {
         let mut ret = None;
         let mut op = 0;
         let id = format!("list_panel_{}", idx);
+        let mut all = false;
         egui::SidePanel::left(id)
             .resizable(false)
             .show(ctx, |ui| {
@@ -999,11 +1010,18 @@ impl SkillEditorApp {
 
                 ui.horizontal(|ui|{
                     ui.heading(title);
+                });
+                ui.horizontal(|ui|{
                     if ui.button("+").on_hover_text("新增配置").clicked() {op=1;}
                     if ui.button("-").on_hover_text("删除配置").clicked() {op=2;}
                     if ui.button("‖").on_hover_text("复制配置").clicked() {op=5;}
                     if ui.button("↓").on_hover_text("导入配置").clicked() {op=3;}
                     if ui.button("↑").on_hover_text("导出配置").clicked() {op=4;}
+                    if show_all.is_some() {
+                        all = show_all.unwrap();
+                        ui.checkbox(&mut all, "").on_hover_text("显示全部");
+                        *show_all = Some(all);
+                    }
                 });
                 ui.horizontal(|ui|{
                     ui.text_edit_singleline(search);
@@ -1021,9 +1039,15 @@ impl SkillEditorApp {
                                 .default_open(true)
                                 .show(ui, |ui| {
                                     for (name, idx, _key_num) in two {
-                                        if ui.selectable_label(*idx == cur, name).clicked(){
+                                        let mut txt = RichText::new(name);
+                                        // if false {
+                                        //     txt = txt.color(Color32::RED);
+                                        // }
+                                        if ui.selectable_label(*idx == cur, txt)
+                                        .clicked(){
                                             ret = Some(idx.clone());
                                         }
+                                        
                                     }
                                 });
                             }
