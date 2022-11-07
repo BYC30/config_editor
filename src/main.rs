@@ -244,7 +244,7 @@ impl DataTable {
             for (sub_group, two) in one.iter().sorted_by_key(|a|{a.0}) {
                 let mut js = json!([]);
                 let arr = js.as_array_mut().unwrap();
-                for (_name, idx, _key_num) in two {
+                for (_name, idx, _key_num, dup) in two {
                     let mut obj = json!({});
                     let obj_map = obj.as_object_mut().unwrap();
                     let row = self.data.get(*idx as usize).unwrap();
@@ -376,17 +376,28 @@ impl DataTable {
         self.copy_row(self.cur_row as usize, master_val);
     }
 
-    fn get_show_name_list(&self, key:&Option<String>, id:&String, show_all: bool) -> HashMap<String, HashMap<String, Vec<(String, i32, i32)>>> {
-        let mut total: HashMap<String, HashMap<String, Vec<(String, i32, i32)>>> = HashMap::new();
+    fn get_show_name_list(&self, master_key:&Option<String>, id:&String, show_all: bool) -> HashMap<String, HashMap<String, Vec<(String, i32, i32, bool)>>> {
+        let mut total: HashMap<String, HashMap<String, Vec<(String, i32, i32, bool)>>> = HashMap::new();
 
         let mut idx = 0;
+        let mut key_cnt: HashMap<String, i32> = HashMap::new();
+        for one in &self.data {
+            let key = utils::map_get_string(&one, &self.key_name, "");
+            let mut cnt = 0;
+            if key_cnt.contains_key(&key) {
+                cnt = *key_cnt.get(&key).unwrap();
+            }
+            cnt = cnt + 1;
+            key_cnt.insert(key, cnt);
+        }
         for one in &self.data {
             let name = self.get_one_show_name(one);
+            let key = utils::map_get_string(&one, &self.key_name, "");
             idx = idx + 1;
             if name.is_none() {continue;}
             let name = name.unwrap();
-            if key.is_some() && !show_all {
-                let k = key.clone().unwrap();
+            if master_key.is_some() && !show_all {
+                let k = master_key.clone().unwrap();
                 let rel_id = one.get(&k);
                 if rel_id.is_none() {continue;}
                 let rel_id = rel_id.unwrap();
@@ -403,7 +414,9 @@ impl DataTable {
                 layer1.insert(sub_group.clone(), Vec::new());
             }
             let layer2 = layer1.get_mut(&sub_group).unwrap();
-            layer2.push((name, idx - 1, key_num));
+            let cnt = *key_cnt.get(&key).unwrap();
+            let dup = cnt > 1;
+            layer2.push((name, idx - 1, key_num, dup));
         }
         for (_, one) in &mut total {
             for (_, two) in one {
@@ -943,7 +956,7 @@ impl SkillEditorApp {
                 let copy_list = data_table.get_show_name_list(&one.master_key, &copy_master_val, false);
                 for (_, one) in copy_list {
                     for (_, two) in one {
-                        for (_, idx, _) in two {
+                        for (_, idx, _, _) in two {
                             data_table.copy_row(idx.clone() as usize, &cur_master_val);
                         }
                     }
@@ -998,7 +1011,7 @@ impl SkillEditorApp {
         }
     }
 
-    fn draw_list(ctx: &egui::Context, idx:i32, width: f32, title:&str, list:&HashMap<String, HashMap<String, Vec<(String, i32, i32)>>>, cur: i32, search:&mut String, mut show_all: &mut Option<bool>) -> (Option<i32>, i32) {
+    fn draw_list(ctx: &egui::Context, idx:i32, width: f32, title:&str, list:&HashMap<String, HashMap<String, Vec<(String, i32, i32, bool)>>>, cur: i32, search:&mut String, mut show_all: &mut Option<bool>) -> (Option<i32>, i32) {
         let mut ret = None;
         let mut op = 0;
         let id = format!("list_panel_{}", idx);
@@ -1038,16 +1051,15 @@ impl SkillEditorApp {
                                 egui::CollapsingHeader::new(sub_group)
                                 .default_open(true)
                                 .show(ui, |ui| {
-                                    for (name, idx, _key_num) in two {
+                                    for (name, idx, _key_num, dup) in two {
                                         let mut txt = RichText::new(name);
-                                        // if false {
-                                        //     txt = txt.color(Color32::RED);
-                                        // }
+                                        if *dup {
+                                            txt = txt.color(Color32::RED);
+                                        }
                                         if ui.selectable_label(*idx == cur, txt)
                                         .clicked(){
                                             ret = Some(idx.clone());
                                         }
-                                        
                                     }
                                 });
                             }
