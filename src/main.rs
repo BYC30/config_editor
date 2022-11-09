@@ -182,7 +182,7 @@ impl DataTable {
         content.push_str("\r\n");
 
         // 内容
-        for row in &self.data {
+        for row in self.data.iter().sorted_by_key(|a|{utils::map_get_i32(*a, &self.key_name)}) {
             let mut one_line = Vec::new();
             for one in &self.info {
                 if !one.export {continue;}
