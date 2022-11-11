@@ -549,74 +549,64 @@ impl FieldInfo {
     fn create_one_ui(&self, val: &String, ui: &mut egui::Ui) -> (bool, String) {
         let mut flag = false;
         let mut ret = String::new();
-
-        match self.val_type {
-            EFieldType::Bool => {
-                let mut v = val.to_lowercase() == "true";
-                let one = ui.checkbox(&mut v, "");
-                if one.gained_focus() || one.changed() {
-                    flag = true;
-                }
-                ret = if v {"True".to_string()} else {"false".to_string()};
-            },
-            EFieldType::Number => {
-                let mut v = val.clone();
-                let old = v.clone();
-
-                let txt1 = egui::TextEdit::multiline(&mut v)
-                    .desired_width(f32::INFINITY);
-                if ui.add(txt1).gained_focus(){
-                    flag = true;
-                }
-
-                let num = v.parse::<f32>();
-
-                match num {
-                    Ok(n) => {
-                        ret = v;
-                    },
-                    Err(e) => {
-                        if v.is_empty() {
-                            ret = "0".to_string();
-                        }else{
-                            ret = old;
-                            let content = format!("字段[{}]输入[{}]错误", self.title, v);
-                            utils::msg(content, "错误".to_string());
-                        }
-                    },
-                };
-            },
-            EFieldType::Str => {
-                let mut v = val.clone();
-
-                let txt1 = egui::TextEdit::multiline(&mut v)
-                    .desired_width(f32::INFINITY);
-                if ui.add(txt1).gained_focus(){
-                    flag = true;
-                }
-                ret = v;
-            },
-            EFieldType::Expr => {
-                let mut v = val.clone();
-
-                let txt1 = egui::TextEdit::multiline(&mut v)
-                    .desired_width(f32::INFINITY);
-                if ui.add(txt1).gained_focus(){
-                    flag = true;
-                }
-                ret = v;
-            },
-            EFieldType::Table => {
-                let mut v = val.clone();
-
-                let txt1 = egui::TextEdit::multiline(&mut v)
-                    .desired_width(f32::INFINITY);
-                if ui.add(txt1).gained_focus(){
-                    flag = true;
-                }
-                ret = v;
-            },
-        }
+        ui.vertical(|ui|{
+            match self.val_type {
+                EFieldType::Bool => {
+                    let mut v = val.to_lowercase() == "true";
+                    let one = ui.checkbox(&mut v, "");
+                    if one.gained_focus() || one.changed() {
+                        flag = true;
+                    }
+                    ret = if v {"True".to_string()} else {"false".to_string()};
+                },
+                EFieldType::Number => {
+                    let mut v = val.clone();
+    
+                    let txt1 = egui::TextEdit::multiline(&mut v)
+                        .desired_width(f32::INFINITY);
+                    if ui.add(txt1).gained_focus(){
+                        flag = true;
+                    }
+    
+                    let num = v.parse::<f32>();
+                    ret = v;
+                    if num.is_err() {
+                        let err_info = egui::RichText::new("输入内容非数字").color(Color32::RED);
+                        ui.label(err_info);
+                    }
+                },
+                EFieldType::Str => {
+                    let mut v = val.clone();
+    
+                    let txt1 = egui::TextEdit::multiline(&mut v)
+                        .desired_width(f32::INFINITY);
+                    if ui.add(txt1).gained_focus(){
+                        flag = true;
+                    }
+                    ret = v;
+                },
+                EFieldType::Expr => {
+                    let mut v = val.clone();
+    
+                    let txt1 = egui::TextEdit::multiline(&mut v)
+                        .desired_width(f32::INFINITY);
+                    if ui.add(txt1).gained_focus(){
+                        flag = true;
+                    }
+                    ret = v;
+                },
+                EFieldType::Table => {
+                    let mut v = val.clone();
+    
+                    let txt1 = egui::TextEdit::multiline(&mut v)
+                        .desired_width(f32::INFINITY);
+                    if ui.add(txt1).gained_focus(){
+                        flag = true;
+                    }
+                    ret = v;
+                },
+            }
+        });
         return (flag, ret);
     }
 
@@ -642,7 +632,7 @@ impl FieldInfo {
             ui.vertical_centered(|ui| {
                 ui.horizontal(|ui|{
                     if ui.button("+").clicked() {
-                        arr.push("");
+                        arr.push("0");
                     }
                     if ui.button("-").clicked() {
                         arr.pop();
