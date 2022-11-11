@@ -63,3 +63,10 @@ pub fn map_get_string(map:&HashMap<String, String>, key:&str, default:&str) -> S
     }
     return ret;
 }
+
+pub fn map_contains_str(map:&HashMap<String, String>, search:&String) -> bool {
+    for (_k, v) in map {
+        if v.contains(search) {return true;}
+    }
+    return false;
+}

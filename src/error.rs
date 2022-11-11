@@ -13,4 +13,6 @@ pub enum AppError {
     Other(#[from] anyhow::Error),
     #[error("配置表页签[{0}]格式错误")]
     ConfigFormatError(String),
+    #[error("导入表格key[{0}]未找到")]
+    ImportExcelKeyNotFound(String),
 }

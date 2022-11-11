@@ -239,7 +239,7 @@ impl DataTable {
             fs::remove_file(p)?;
         }
 
-        let list = self.get_show_name_list(&None, &String::new(), true);
+        let list = self.get_show_name_list(&None, &String::new(), true, &String::new());
         for (group, one) in list.iter().sorted_by_key(|a|{a.0}) {
             for (sub_group, two) in one.iter().sorted_by_key(|a|{a.0}) {
                 let mut js = json!([]);
@@ -376,7 +376,7 @@ impl DataTable {
         self.copy_row(self.cur_row as usize, master_val);
     }
 
-    fn get_show_name_list(&self, master_key:&Option<String>, id:&String, show_all: bool) -> HashMap<String, HashMap<String, Vec<(String, i32, i32, bool)>>> {
+    fn get_show_name_list(&self, master_key:&Option<String>, id:&String, show_all: bool, search: &String) -> HashMap<String, HashMap<String, Vec<(String, i32, i32, bool)>>> {
         let mut total: HashMap<String, HashMap<String, Vec<(String, i32, i32, bool)>>> = HashMap::new();
 
         let mut idx = 0;
@@ -406,6 +406,8 @@ impl DataTable {
             let group = utils::map_get_string(one, "__Group__", "默认分组");
             let sub_group = utils::map_get_string(one, "__SubGroup__", "默认子分组");
             let key_num = utils::map_get_i32(one, &self.key_name);
+            if !search.is_empty() && !utils::map_contains_str(one, &search) {continue;}
+
             if !total.contains_key(&group) {
                 total.insert(group.clone(), HashMap::new());
             }
@@ -951,9 +953,9 @@ impl SkillEditorApp {
                 show_all = Some(data_table.show_all);
                 show_all_bool = data_table.show_all;
             }
-            let list = data_table.get_show_name_list(&one.master_key, &cur_master_val, show_all_bool);
+            let list = data_table.get_show_name_list(&one.master_key, &cur_master_val, show_all_bool, &data_table.search);
             if !copy_id.is_empty() && master_key == copy_id {
-                let copy_list = data_table.get_show_name_list(&one.master_key, &copy_master_val, false);
+                let copy_list = data_table.get_show_name_list(&one.master_key, &copy_master_val, false, &"".to_string());
                 for (_, one) in copy_list {
                     for (_, two) in one {
                         for (_, idx, _, _) in two {
