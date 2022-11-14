@@ -391,10 +391,15 @@ impl SkillEditorApp {
             idx = idx + 1;
             let show_table = self.data_table.get(key);
             if show_table.is_none() {
-                SkillEditorApp::draw_empty_table(ctx, key, width, idx);
+                let msg = format!("表格[{}]未找到", key);
+                SkillEditorApp::draw_empty_table(ctx, msg, width, idx);
                 continue;
             }
             let const_one = show_table.unwrap();
+            if !const_one.error.is_empty() {
+                SkillEditorApp::draw_empty_table(ctx, const_one.error.clone(), width, idx);
+                continue;
+            }
 
             let mut cur_master_val = String::new();
             let master_table = const_one.master_table.clone();
@@ -655,13 +660,12 @@ impl SkillEditorApp {
         return ret;
     }
 
-    fn draw_empty_table(ctx: &egui::Context, name: &String, width: f32, idx: i32) {
+    fn draw_empty_table(ctx: &egui::Context, msg:String, width: f32, idx: i32) {
         let list_panel_id = format!("list_panel_{}", idx);
         egui::SidePanel::left(list_panel_id)
         .resizable(false)
         .show(ctx, |ui| {
             ui.set_width(width);
-            let msg = format!("表格[{}]未找到", name);
             let err_info = egui::RichText::new(msg).color(Color32::RED);
             ui.label(err_info);
         });

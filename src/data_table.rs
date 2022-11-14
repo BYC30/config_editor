@@ -33,7 +33,7 @@ pub struct DataTable {
     pub show_all: bool,
     pub templete_idx: i32,
 
-    error: String,
+    pub error: String,
 }
 
 impl DataTable {
