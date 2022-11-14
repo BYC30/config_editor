@@ -120,7 +120,7 @@ impl FieldInfo {
 
 
 impl FieldInfo {
-    fn create_one_ui(&self, val: &String, ui: &mut egui::Ui) -> (bool, String) {
+    fn create_one_ui(&self, val: &String, ui: &mut egui::Ui, idx:i32) -> (bool, String) {
         let mut flag = false;
         let mut ret = String::new();
         ui.vertical(|ui|{
@@ -158,7 +158,7 @@ impl FieldInfo {
                         label = egui::RichText::new(one.show.clone());
                     }
 
-                    let id = format!("{}_combobox", self.name);
+                    let id = format!("{}_{}_combobox", self.name, idx);
                     egui::ComboBox::from_id_source(id)
                     .selected_text(label)
                     .show_ui(ui, |ui| {
@@ -215,9 +215,11 @@ impl FieldInfo {
                         arr.pop();
                     }
                 });
+                let mut idx = 0;
                 for one in arr {
+                    idx = idx + 1;
                     let s = one.to_string();
-                    let (f, ret) = self.create_one_ui(&s, ui);
+                    let (f, ret) = self.create_one_ui(&s, ui, idx);
                     if f {flag = true};
                     new.push(ret);
                 }
@@ -225,7 +227,7 @@ impl FieldInfo {
                 map.insert(self.name.clone(), s);
             });    
         }else{
-            let (f, ret) = self.create_one_ui(&v, ui);
+            let (f, ret) = self.create_one_ui(&v, ui, 1);
             if f {flag = true;}
             map.insert(self.name.clone(), ret);
         }
