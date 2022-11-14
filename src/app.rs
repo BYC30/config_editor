@@ -81,12 +81,14 @@ impl SkillEditorApp {
 
                 let mut idx = 0;
                 for output_type in &data_table.output_type {
-                    if data_table.output_path.len() > idx + 1 {
+                    if data_table.output_path.len() > idx {
                         let mut p = path.clone();
                         let path = data_table.output_path.get(idx).unwrap();
-                        p.push(path);
-                        let f = format!("{}.csv", table_key);
-                        p.push(f);
+                        p.push(path.clone());
+                        if !path.ends_with(".csv") {
+                            let f = format!("{}.csv", table_key);
+                            p.push(f);
+                        }
                         data_table._save_csv(p, output_type)?;
                     }
                     idx = idx + 1;
