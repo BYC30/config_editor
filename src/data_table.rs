@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, fs};
+use std::{collections::{HashMap, HashSet}, path::PathBuf, fs};
 use anyhow::{Result, bail};
 use calamine::{open_workbook_auto, Reader};
 use eframe::{egui::{self, collapsing_header::HeaderResponse}, epaint::Color32};
@@ -421,11 +421,16 @@ impl DataTable {
         let range = workbook.worksheet_range(&tab)
             .ok_or(error::AppError::SheetNotFound(tab))??;
 
+        let mut field_set = HashSet::new();
+        for one in &self.info {
+            field_set.insert(one.name.clone());
+        }
+
         let mut row = 0;
         let mut flag = false;
         for one in range.rows() {
             let cell = one[0].to_string();
-            if cell == self.key_name {
+            if field_set.contains(&cell) {
                 flag = true;
                 break;
             }
