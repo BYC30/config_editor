@@ -24,12 +24,47 @@ pub struct TempleteInfo{
     content: HashMap<String, String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MenuInfo{
     menu: String,
     name: String,
     exe: String,
-    hotkey: egui::Key,
+    hotkey: Option<egui::Key>,
+}
+
+impl MenuInfo {
+    fn check_hotkey(&self, ui: &egui::Ui) {
+        if !ui.input().modifiers.ctrl {return;}
+        let hk = &self.hotkey;
+        if hk.is_none() {return;}
+        let hk = hk.unwrap();
+        if !ui.input().key_pressed(hk.clone()) {return;}
+        self.trigger();
+    }
+
+    fn _trigger(&self) -> Result<()> {
+        let mut dir = std::env::current_exe()?;
+        dir.pop();
+        dir.push(self.exe.clone());
+        let output = Command::new(dir).output()?;
+        // let txt = String::from_utf8(output.stdout)?;
+        // let msg = format!("执行命令[{}]失败:{}", self.exe, txt);
+        // utils::msg(msg, "错误".to_string());
+
+        return Ok(());
+    }
+
+    fn trigger(&self){
+        let ret = self._trigger();
+        match ret {
+            Ok(_) => {},
+            Err(e) => {
+                let msg = format!("执行命令[{}]失败:{}", self.exe, e);
+                utils::msg(msg, "错误".to_string());
+            }
+        }
+    }
+
 }
 
 #[derive(Debug)]
@@ -133,9 +168,10 @@ impl SkillEditorApp {
             let name = row[1].to_string();
             if name.is_empty() {continue;}
             let exe = row[2].to_string();
-            // let hotkey:Vec<egui::Key> = serde_json::from_str(s.as_str())?;
-            // let hotkey = hotkey.get(0).unwrap().clone();
-            // self.menus.push(MenuInfo { menu, name, exe, hotkey });
+            let hotkey = row[3].to_string();
+            let hotkey = utils::translate_key(&hotkey);
+            
+            self.menus.push(MenuInfo { menu, name, exe, hotkey });
         }
 
         return Ok(()); 
@@ -290,7 +326,7 @@ impl SkillEditorApp {
         self.load_templete()?;
         self.load_tab_config()?;
         self.load_data()?;
-        // self.load_menu_config()?;
+        self.load_menu_config()?;
         return Ok(());
     }
 
@@ -326,21 +362,29 @@ impl SkillEditorApp {
                 if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
                     self.save_data();
                 }
-                let mut list = HashSet::new();
+                let mut list: Vec<(String, Vec<MenuInfo>)> = Vec::new();
                 for one in &self.menus {
-                    list.insert(one.menu.clone());
-                }
-                for one in list {
-                    ui.menu_button(one, |ui| {
-                        for menu in &self.menus {
-                            let hk = menu.hotkey;
-                            let flag = ui.input().key_pressed(hk) && ui.input().modifiers.ctrl;
-                            let flag2 = ui.button(&menu.name).clicked();
-                            if flag || flag2 {
-                                let output = Command::new(&menu.exe).output().expect("执行异常，提示");
-                            }
+                    one.check_hotkey(ui);
+                    for (menu, v) in &mut list {
+                        if *menu == one.menu {
+                            v.push(one.clone());
+                            continue;
                         }
-                    });
+                    }
+                    list.push((one.menu.clone(), vec![one.clone()]));
+                }
+                for (menu, v) in list {
+                    if menu.is_empty() {
+                        for menu_info in v {
+                            if ui.button(&menu_info.name).clicked(){ menu_info.trigger(); }
+                        }
+                    }else{
+                        ui.menu_button(menu, |ui| {
+                            for menu_info in v {
+                                if ui.button(&menu_info.name).clicked(){ menu_info.trigger(); }
+                            }
+                        });
+                    }
                 }
             });
         });
