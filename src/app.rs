@@ -412,6 +412,7 @@ impl SkillEditorApp {
         let mut copy_table = String::new();
         let mut copy_master_val = String::new();
         let mut idx = 0;
+        let mut click_table = String::new();
         for key in &cfg.tabs {
             idx = idx + 1;
             let show_table = self.data_table.get(key);
@@ -455,11 +456,15 @@ impl SkillEditorApp {
                 show_all = Some(data_table.show_all);
                 show_all_bool = data_table.show_all;
             }
+            if !click_table.is_empty() && click_table == data_table.master_table {
+                data_table.update_cur_row(&cur_master_val);
+            }
             let list = data_table.get_show_name_list(&data_table.master_field, &cur_master_val, show_all_bool, &data_table.search);
             let (click, op, create_tmp) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &data_table.show_name, &list, data_table.cur_row, &mut data_table.search, &mut show_all, &data_table.templete, &mut data_table.templete_idx);
             if show_all.is_some() { data_table.show_all = show_all.unwrap(); }
             if click.is_some() {
                 data_table.cur_row = click.unwrap().clone();
+                click_table = data_table.table_name.clone();
             }
             if !create_tmp.is_empty() {
                 self.templete_target = key.clone();

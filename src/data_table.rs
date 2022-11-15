@@ -425,6 +425,19 @@ impl DataTable {
         return None;
     }
 
+    pub fn update_cur_row(&mut self, master_val:&String) {
+        let list = self.get_show_name_list(&self.master_field, master_val, false, &String::new());
+        for (_, one) in list {
+            for (_, two) in one {
+                for (_, idx, _, _) in two {
+                    self.cur_row = idx;
+                    return;
+                }
+            }
+        }
+        self.cur_row = -1;
+    }
+
     pub fn import_excel(&mut self, path:PathBuf, tab:String) -> Result<()> {
         let mut workbook= open_workbook_auto(path)?;
         let range = workbook.worksheet_range(&tab)
