@@ -416,6 +416,15 @@ impl DataTable {
         return Some(name);
     }
 
+    fn get_field_by_name(info:&Vec<FieldInfo>, name:&String) -> Option<FieldInfo> {
+        for one in info {
+            if one.name == *name {
+                return Some(one.clone());
+            }
+        }
+        return None;
+    }
+
     pub fn import_excel(&mut self, path:PathBuf, tab:String) -> Result<()> {
         let mut workbook= open_workbook_auto(path)?;
         let range = workbook.worksheet_range(&tab)
@@ -427,6 +436,7 @@ impl DataTable {
         }
 
         let mut row = 0;
+        let mut title_row = 0;
         let mut flag = false;
         for one in range.rows() {
             let cell = one[0].to_string();
@@ -435,26 +445,32 @@ impl DataTable {
                 break;
             }
             row = row + 1;
+            title_row = title_row + 1;
         }
         if !flag {bail!(error::AppError::ImportExcelKeyNotFound(self.key_name.clone()))};
 
         let mut data = Vec::new();
         let max_size = range.get_size().0 as u32;
+        let max_col = range.get_size().1 as u32;
         loop {
             row = row + 1;
             if row > max_size {break;}
             let mut map = HashMap::new();
             
             let mut key = String::new();
-            let mut col = 0;
-            for one in &self.info {
+
+            for col in 0..max_col {
+                let title = utils::get_cell(&range, title_row, col);
+                let field_info = DataTable::get_field_by_name(&self.info, &title);
+                if field_info.is_none() {continue;}
+                let field_info = field_info.unwrap();
                 let v = utils::get_cell(&range, row, col);
-                if one.is_key {
+                if field_info.is_key {
                     key = v.clone();
                 }
-                map.insert(one.name.clone(), v);
-                col = col + 1;
+                map.insert(field_info.name.clone(), v);
             }
+
             if key.is_empty() {continue;}
             data.push(map);
         }
@@ -492,9 +508,10 @@ impl DataTable {
             row_idx = row_idx + 1;
             let mut col = 0;
             for one in &self.info {
+                col = col + 1;
                 let v = row.get(&one.name);
                 if v.is_none() {continue;}
-                sheet.write_string(row_idx, col, v.unwrap(), None)?;
+                sheet.write_string(row_idx, col - 1, v.unwrap(), None)?;
             }
         }
 

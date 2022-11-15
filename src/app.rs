@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::format};
+use std::{collections::{HashMap, HashSet}, fmt::format, process::Command};
 use eframe::{egui::{self, Ui, RichText, output}, App, epaint::Color32, glow::GEOMETRY_OUTPUT_TYPE};
 use anyhow::{Result, bail};
 use itertools::Itertools;
@@ -25,6 +25,14 @@ pub struct TempleteInfo{
 }
 
 #[derive(Debug)]
+struct MenuInfo{
+    menu: String,
+    name: String,
+    exe: String,
+    hotkey: egui::Key,
+}
+
+#[derive(Debug)]
 pub struct SkillEditorApp {
     inited: bool,
 
@@ -32,6 +40,7 @@ pub struct SkillEditorApp {
     tab_cfg: Vec<TabConfig>,
     data_table: HashMap<String, DataTable>,
     templete: HashMap<String, Vec<TempleteInfo>>,
+    menus: Vec<MenuInfo>,
 
     // UI 相关数据
     cur_view: usize,
@@ -109,6 +118,29 @@ impl SkillEditorApp {
         }
     }
 
+    fn load_menu_config(&mut self) -> Result<()> {
+        let mut path = std::env::current_exe()?;
+        path.pop();
+        path.push("config.xlsx");
+        let range = utils::open_excel2(&path, "菜单配置")?;
+
+        let mut idx = 0;
+        for row in range.rows() {
+            idx = idx + 1;
+            if idx <= 1 {continue;}
+            let menu = row[0].to_string();
+            if menu.is_empty() {continue;}
+            let name = row[1].to_string();
+            if name.is_empty() {continue;}
+            let exe = row[2].to_string();
+            // let hotkey:Vec<egui::Key> = serde_json::from_str(s.as_str())?;
+            // let hotkey = hotkey.get(0).unwrap().clone();
+            // self.menus.push(MenuInfo { menu, name, exe, hotkey });
+        }
+
+        return Ok(()); 
+    }
+
     fn load_field_config(&mut self) -> Result<()> {
         let mut path = std::env::current_exe()?;
         path.pop();
@@ -119,54 +151,24 @@ impl SkillEditorApp {
         for row in range.rows() {
             idx = idx + 1;
             if idx <= 1 {continue;}
-            let table_key = match row[0].get_string() {
-                None=>continue,
-                Some(x) => x.to_string(),
-            };
-            let name = match row[1].get_string() {
-                None=> continue,
-                Some(x)=>x.to_string(),
-            };
-            let val_type = match row[2].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let editor_type = match row[3].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let opt = match row[4].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
+            let table_key = row[0].to_string();
+            if table_key.is_empty() {continue;}
+            let name = row[1].to_string();
+            if name.is_empty() {continue;}
+            let val_type = row[2].to_string();
+            let editor_type = row[3].to_string();
+            let opt = row[4].to_string();
             let default = row[5].to_string();
-            let title = match row[6].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let desc = match row[7].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let group = match row[8].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let link_table = match row[9].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
+            let title = row[6].to_string();
+            let desc = row[7].to_string();
+            let group = row[8].to_string();
+            let link_table = row[9].to_string();
             let export = row[10].to_string().to_lowercase() != "true";
-            let output_header:Vec<String> = match row[11].get_string() {
-                None=> Vec::new(),
-                Some(x)=>{
-                    if x.is_empty() {
-                        Vec::new()
-                    }else{
-                        serde_json::from_str(x)?
-                    }
-                }
-            };    
+            let output_header = row[11].to_string();
+            let output_header:Vec<String> = match output_header.as_str() {
+                ""=> Vec::new(),
+                _=>{serde_json::from_str(&output_header)?}
+            };
             
             println!("parse field[{}] opt[{}] default[{}] editor_type[{}] export[{}]", name, opt, default, editor_type, export);
             let field = FieldInfo::parse(name, title, desc, group, val_type, editor_type, opt, default, link_table, export, output_header)?;
@@ -192,54 +194,24 @@ impl SkillEditorApp {
         for row in range.rows() {
             idx = idx + 1;
             if idx <= 1 {continue;}
-            let table_key = match row[0].get_string() {
-                None=>continue,
-                Some(x) => x.to_string(),
+            let table_key = row[0].to_string();
+            if table_key.is_empty() {continue;}
+            let tab = row[1].to_string();
+            if tab.is_empty() {continue;}
+            let show_name = row[2].to_string();
+            let show_field = row[3].to_string();
+            let master_table = row[4].to_string();
+            let master_field = row[5].to_string();
+            let group_field = row[6].to_string();
+            let output_type = row[7].to_string();
+            let output_type:Vec<String> = match output_type.as_str() {
+                ""=> Vec::new(),
+                _=>{serde_json::from_str(&output_type)?}
             };
-            let tab = match row[1].get_string() {
-                None=> continue,
-                Some(x)=>x.to_string(),
-            };
-            let show_name = match row[2].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let show_field = match row[3].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let master_table = match row[4].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let master_field = match row[5].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let group_field = match row[6].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let output_type:Vec<String> = match row[7].get_string() {
-                None=> Vec::new(),
-                Some(x)=>{
-                    println!("get output_type[{}]", x);
-                    if x.is_empty() {
-                        Vec::new()
-                    }else{
-                        serde_json::from_str(x)?
-                    }
-                }
-            };           
-            let output_path:Vec<String> = match row[8].get_string() {
-                None=> Vec::new(),
-                Some(x)=>{
-                    if x.is_empty() {
-                        Vec::new()
-                    }else{
-                        serde_json::from_str(x)?
-                    }
-                }
+            let output_path = row[8].to_string();
+            let output_path:Vec<String> = match output_path.as_str() {
+                ""=> Vec::new(),
+                _=>{serde_json::from_str(&output_path)?}
             };
            
             let mut found = false;
@@ -291,22 +263,12 @@ impl SkillEditorApp {
         for row in range.rows() {
             idx = idx + 1;
             if idx <= 1 {continue;}
-            let table_key = match row[0].get_string() {
-                None=>continue,
-                Some(x) => x.to_string(),
-            };
-            let title = match row[1].get_string() {
-                None=> continue,
-                Some(x)=>x.to_string(),
-            };
-            let table = match row[2].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
-            let content = match row[3].get_string() {
-                None=> String::new(),
-                Some(x)=>x.to_string(),
-            };
+            let table_key = row[0].to_string();
+            if table_key.is_empty() {continue;}
+            let title = row[1].to_string();
+            if title.is_empty() {continue;}
+            let table = row[2].to_string();
+            let content = row[3].to_string();
             let ret = serde_json::from_str(content.as_str());
             if ret.is_err() {
                 let msg = format!("模板[{}]的内容[{}]解析失败", title, content);
@@ -328,6 +290,7 @@ impl SkillEditorApp {
         self.load_templete()?;
         self.load_tab_config()?;
         self.load_data()?;
+        // self.load_menu_config()?;
         return Ok(());
     }
 
@@ -362,6 +325,22 @@ impl SkillEditorApp {
                 if ui.button("保存").clicked(){ self.save_data();}
                 if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
                     self.save_data();
+                }
+                let mut list = HashSet::new();
+                for one in &self.menus {
+                    list.insert(one.menu.clone());
+                }
+                for one in list {
+                    ui.menu_button(one, |ui| {
+                        for menu in &self.menus {
+                            let hk = menu.hotkey;
+                            let flag = ui.input().key_pressed(hk) && ui.input().modifiers.ctrl;
+                            let flag2 = ui.button(&menu.name).clicked();
+                            if flag || flag2 {
+                                let output = Command::new(&menu.exe).output().expect("执行异常，提示");
+                            }
+                        }
+                    });
                 }
             });
         });
@@ -457,7 +436,7 @@ impl SkillEditorApp {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("xlsm", &["xlsm", "xlsx"])
                     .pick_file() {
-                        match data_table.import_excel(path, data_table.tab.clone()){
+                        match data_table.import_excel(path, data_table.table_name.clone()){
                             Ok(_) => {utils::msg("导入成功".to_string(), "成功".to_string())},
                             Err(e) => {
                                 let msg = format!("导入失败: {:?}", e);
@@ -471,7 +450,7 @@ impl SkillEditorApp {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("xlsx", &["xlsx"])
                     .save_file() {
-                        match data_table.export_excel(path, data_table.tab.clone()){
+                        match data_table.export_excel(path, data_table.table_name.clone()){
                             Ok(_) => {utils::msg("导出成功".to_string(), "成功".to_string())},
                             Err(e) => {
                                 let msg = format!("导出失败: {:?}", e);
@@ -843,6 +822,7 @@ impl Default for SkillEditorApp {
             link_table: String::new(),
             link_src_table: String::new(),
             link_src_field: String::new(),
+            menus: Vec::new(),
         }
     }
 }
