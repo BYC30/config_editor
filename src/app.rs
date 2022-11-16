@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, fmt::format, process::Command};
+use std::{collections::{HashMap, HashSet}, fmt::format, process::Command, arch::x86_64::_MM_FROUND_CUR_DIRECTION};
 use eframe::{egui::{self, Ui, RichText, output}, App, epaint::Color32, glow::GEOMETRY_OUTPUT_TYPE};
 use anyhow::{Result, bail};
 use itertools::Itertools;
@@ -43,13 +43,28 @@ impl MenuInfo {
     }
 
     fn _trigger(&self) -> Result<()> {
-        let mut dir = std::env::current_exe()?;
+        
+        let mut path = std::env::current_exe()?;
+        path.pop();
+        path.push(self.exe.clone());
+        // let path = std::fs::canonicalize(path)?;
+        let mut dir = path.clone();
+        let path = path.to_str().unwrap();
+        let path = path.replace("\\\\?\\", "");
         dir.pop();
-        dir.push(self.exe.clone());
-        let output = Command::new(dir).output()?;
-        // let txt = String::from_utf8(output.stdout)?;
-        // let msg = format!("执行命令[{}]失败:{}", self.exe, txt);
-        // utils::msg(msg, "错误".to_string());
+        let dir = dir.to_str().unwrap().replace("\\\\?\\", "");
+        
+        let cur_dir = std::env::current_dir()?;
+        
+        std::env::set_current_dir(dir.clone())?;
+        let lua = mlua::Lua::new();
+        let cmd = format!(r#"
+        local f = io.popen('cmd /C {}')
+        f:close()
+        "#, self.exe);
+        println!("Exec cmd {}", cmd);
+        lua.load(&cmd).exec()?;
+        std::env::set_current_dir(cur_dir)?;
 
         return Ok(());
     }
@@ -166,7 +181,6 @@ impl SkillEditorApp {
             let menu = row[0].to_string();
             if menu.is_empty() {continue;}
             let name = row[1].to_string();
-            if name.is_empty() {continue;}
             let exe = row[2].to_string();
             let hotkey = row[3].to_string();
             let hotkey = utils::translate_key(&hotkey);
