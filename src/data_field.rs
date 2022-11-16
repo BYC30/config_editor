@@ -174,11 +174,30 @@ impl FieldInfo {
 
             match self.val_type {
                 EFieldType::Number => {
-                    let mut v = val.clone();
+                    let v = val.clone();
                     let num = v.parse::<f32>();
                     if num.is_err() {
                         let err_info = egui::RichText::new("输入内容非数字").color(Color32::RED);
                         ui.label(err_info);
+                    }
+                },
+                EFieldType::Expr => {
+                    let v = val.clone();
+                    let lua = mlua::Lua::new();
+                    let mut body = v;
+                    if !self.suffix.starts_with("void") && !body.contains("return") {
+                        body = format!("return {}", body);
+                    }
+                    let s = format!(r#"return function()
+                    {}
+                    end"#, body);
+                    let result = lua.load(s.as_str()).exec();
+                    match result {
+                        Ok(_) => {},
+                        Err(e) => {
+                            let err_info = egui::RichText::new(e.to_string()).color(Color32::RED);
+                            ui.label(err_info);
+                        }
                     }
                 },
                 _ => {} // 其他不检查
