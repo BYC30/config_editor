@@ -179,8 +179,8 @@ impl SkillEditorApp {
             idx = idx + 1;
             if idx <= 1 {continue;}
             let menu = row[0].to_string();
-            if menu.is_empty() {continue;}
             let name = row[1].to_string();
+            if name.is_empty() {continue;}
             let exe = row[2].to_string();
             let hotkey = row[3].to_string();
             let hotkey = utils::translate_key(&hotkey);
@@ -274,8 +274,8 @@ impl SkillEditorApp {
             if !found {self.tab_cfg.push(TabConfig{name:tab.clone(), tabs:vec![table_key.clone()]});}
             let mut info = Vec::new();
             if self.field_group.contains_key(&table_key) {
-                let group_field = FieldInfo::parse("__Group__".to_string(), "分组".to_string(), "编辑器分组".to_string(), "默认".to_string(), "S".to_string(), "Text".to_string(), String::new(), "默认分组".to_string(), String::new(), false, Vec::new())?;
-                let sub_group_field = FieldInfo::parse("__SubGroup__".to_string(), "子分组".to_string(), "编辑器子分组".to_string(), "默认".to_string(), "S".to_string(), "Text".to_string(), String::new(), "默认子分组".to_string(), String::new(), false, Vec::new())?;
+                let group_field = FieldInfo::parse("__Group__".to_string(), "分组".to_string(), "编辑器分组".to_string(), "分组".to_string(), "S".to_string(), "Text".to_string(), String::new(), "默认分组".to_string(), String::new(), false, Vec::new())?;
+                let sub_group_field = FieldInfo::parse("__SubGroup__".to_string(), "子分组".to_string(), "编辑器子分组".to_string(), "分组".to_string(), "S".to_string(), "Text".to_string(), String::new(), "默认子分组".to_string(), String::new(), false, Vec::new())?;
                 let field = self.field_group.get_mut(&table_key).unwrap();
                 field.insert(0, sub_group_field);
                 field.insert(0, group_field);
@@ -379,12 +379,15 @@ impl SkillEditorApp {
                 let mut list: Vec<(String, Vec<MenuInfo>)> = Vec::new();
                 for one in &self.menus {
                     one.check_hotkey(ui);
+                    let mut found = false;
                     for (menu, v) in &mut list {
                         if *menu == one.menu {
                             v.push(one.clone());
-                            continue;
+                            found = true;
+                            break;
                         }
                     }
+                    if found {continue;}
                     list.push((one.menu.clone(), vec![one.clone()]));
                 }
                 for (menu, v) in list {
@@ -671,35 +674,51 @@ impl SkillEditorApp {
                 });
         }
 
+        let mut draw_info:Vec<(String, Vec<(i32, FieldInfo)>)> = Vec::new();
+        let mut idx = 0;
+        for one in field {
+            idx = idx + 1;
+            let group = one.group.clone();
+            let mut found = false;
+            for (k, v) in &mut draw_info {
+                if *k == group {
+                    v.push((idx, one.clone()));
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                draw_info.push((group, vec![(idx, one.clone())]));
+            }
+        }
+
         let scroll = egui::ScrollArea::vertical().auto_shrink([false;2]);
         let size = ui.available_size();
         scroll.show(ui, |ui|{
-            let grid_id = format!("detail_panel_grid_{}", idx);
-            let grid = egui::Grid::new(grid_id)
-                .num_columns(2)
-                .spacing([4.0, 4.0])
-                .striped(true)
-                .min_col_width(size.x/2.0 - 64.0);
-            grid.show(ui, |ui|{
-
-
-                let mut idx = 0;
-                let mut click_flag = false;
-                let mut click_idx = 0;
-                for one in field {
-                    idx = idx + 1;
-                    let f = one.create_ui(&mut map, ui, select_field == idx - 1);
-                    if f {
-                        click_flag = true;
-                        click_idx = idx - 1;
-                    }
-
-                    ui.end_row();
-                }
-                if click_flag {
-                    ret = Some(click_idx)
-                }
-            });
+            let mut click_flag = false;
+            let mut click_idx = 0;
+            for (k, vec) in draw_info {
+                egui::CollapsingHeader::new(k)
+                .default_open(true)
+                .show(ui, |ui| {
+                    let grid_id = format!("detail_panel_grid_{}", idx);
+                    let grid = egui::Grid::new(grid_id)
+                        .num_columns(2)
+                        .spacing([4.0, 4.0])
+                        .striped(true)
+                        .min_col_width(size.x/2.0 - 64.0);
+                    grid.show(ui, |ui|{
+                        for (idx, one) in vec {
+                            let f = one.create_ui(&mut map, ui, select_field == idx - 1);
+                            if f {
+                                click_flag = true;
+                                click_idx = idx - 1;
+                            }
+                            ui.end_row();
+                        }
+                    });
+                });
+            }
         });
         return ret;
     }
