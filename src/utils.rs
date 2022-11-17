@@ -71,8 +71,8 @@ pub fn map_contains_str(map:&HashMap<String, String>, search:&String) -> bool {
     return false;
 }
 
-pub fn translate_key(key: &str) -> Option<egui::Key> {
-    use egui::Key;
+pub fn translate_key(key: &str) -> Option<eframe::egui::Key> {
+    use eframe::egui::Key;
 
     match key {
         "ArrowDown" => Some(Key::ArrowDown),
