@@ -1,8 +1,7 @@
-use std::{collections::{HashMap, HashSet}, fmt::format, process::Command, arch::x86_64::_MM_FROUND_CUR_DIRECTION};
+use std::{collections::{HashMap, HashSet}, fmt::format, process::Command, arch::x86_64::_MM_FROUND_CUR_DIRECTION, path::PathBuf};
 use eframe::{egui::{self, Ui, RichText, output}, App, epaint::Color32, glow::GEOMETRY_OUTPUT_TYPE};
 use anyhow::{Result, bail};
 use itertools::Itertools;
-
 use crate::{utils, error, data_table::{DataTable, self}, data_field::FieldInfo};
 
 #[derive(Debug)]
@@ -44,24 +43,25 @@ impl MenuInfo {
 
     fn _trigger(&self) -> Result<()> {
         
-        let mut path = std::env::current_exe()?;
-        path.pop();
-        path.push(self.exe.clone());
-        // let path = std::fs::canonicalize(path)?;
-        let mut dir = path.clone();
-        let path = path.to_str().unwrap();
-        let path = path.replace("\\\\?\\", "");
-        dir.pop();
-        let dir = dir.to_str().unwrap().replace("\\\\?\\", "");
-        
+        let path = std::env::current_exe()?;
+        let path = dunce::canonicalize(path)?;
+
+        let mut exe_path = path.clone();
+        exe_path.pop();
+        exe_path.push(self.exe.clone());
+        println!("exe_path {:?}", exe_path);
+        let exe_path = dunce::canonicalize(exe_path)?;
+        let exe_path_str = exe_path.to_str().unwrap().replace("\\", "\\\\");
+        let mut exe_dir = exe_path.clone();
+        exe_dir.pop();
+        let exe_dir_str = exe_dir.to_str().unwrap().replace("\\", "\\\\");
+
+        println!("dir[{}] exe[{}]", exe_dir_str, exe_path_str);
+
         let cur_dir = std::env::current_dir()?;
-        
-        std::env::set_current_dir(dir.clone())?;
+        std::env::set_current_dir(exe_dir.clone())?;
         let lua = mlua::Lua::new();
-        let cmd = format!(r#"
-        local f = io.popen('cmd /C {}')
-        f:close()
-        "#, self.exe);
+        let cmd = format!("local f = io.popen('cmd /C \"{}\"') f:close()", exe_path_str);
         println!("Exec cmd {}", cmd);
         lua.load(&cmd).exec()?;
         std::env::set_current_dir(cur_dir)?;
