@@ -124,6 +124,15 @@ impl FieldInfo {
         let mut flag = false;
         let mut ret = String::new();
         ui.vertical(|ui|{
+            match self.val_type {
+                EFieldType::Expr => {
+                    let msg = format!("参数:{}", self.suffix);
+                    let info = egui::RichText::new(msg);
+                    ui.label(info);
+                },
+                _ => {} // 其他不检查
+            }
+
             match self.editor_type {
                 EEditorType::Const => {
                     let mut v = val.clone();
