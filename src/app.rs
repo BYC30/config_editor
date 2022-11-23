@@ -719,6 +719,9 @@ impl SkillEditorApp {
                     });
                 });
             }
+            if click_flag {
+                ret = Some(click_idx);
+            }
         });
         return ret;
     }
