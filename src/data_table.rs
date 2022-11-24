@@ -18,6 +18,7 @@ pub struct DataTable {
     pub master_table: String,
     pub master_field: String,
     pub group_key: String,
+    pub export_sort: String,
     pub output_type: Vec<String>,
     pub output_path: Vec<String>,
 
@@ -37,7 +38,7 @@ pub struct DataTable {
 }
 
 impl DataTable {
-    pub fn new(table_name: String, tab: String, show_name:String, show_field:String, master_table:String, master_field:String, group_field:String, output_type:Vec<String>, output_path:Vec<String>, info:Vec<FieldInfo>, templete:Vec<TempleteInfo>) -> DataTable{
+    pub fn new(table_name: String, tab: String, show_name:String, show_field:String, master_table:String, master_field:String, group_field:String, export_sort:String, output_type:Vec<String>, output_path:Vec<String>, info:Vec<FieldInfo>, templete:Vec<TempleteInfo>) -> DataTable{
         let key_name = String::new();
         
         let ret = DataTable{
@@ -48,6 +49,7 @@ impl DataTable {
             master_table,
             master_field,
             group_key: group_field,
+            export_sort,
             output_type,
             output_path,
             
@@ -73,6 +75,7 @@ impl DataTable {
         for one in &self.info {
             if !one.is_key {continue;}
             self.key_name = one.name.clone();
+            if self.export_sort.is_empty() {self.export_sort = self.key_name.clone();}
         }
         if self.key_name.is_empty() {bail!(error::AppError::TableKeyNotFound(self.table_name.clone()));}
         let path = self.get_save_json()?;
@@ -517,7 +520,7 @@ impl DataTable {
         }
 
         let mut row_idx = 3;
-        for row in &self.data {
+        for row in self.data.iter().sorted_by_key(|a|{utils::map_get_i32(a, &self.export_sort)}) {
             row_idx = row_idx + 1;
             let mut col = 0;
             for one in &self.info {

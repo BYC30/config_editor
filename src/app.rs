@@ -253,12 +253,13 @@ impl SkillEditorApp {
             let master_table = row[4].to_string();
             let master_field = row[5].to_string();
             let group_field = row[6].to_string();
-            let output_type = row[7].to_string();
+            let export_sort = row[7].to_string();
+            let output_type = row[8].to_string();
             let output_type:Vec<String> = match output_type.as_str() {
                 ""=> Vec::new(),
                 _=>{serde_json::from_str(&output_type)?}
             };
-            let output_path = row[8].to_string();
+            let output_path = row[9].to_string();
             let output_path:Vec<String> = match output_path.as_str() {
                 ""=> Vec::new(),
                 _=>{serde_json::from_str(&output_path)?}
@@ -290,7 +291,7 @@ impl SkillEditorApp {
                     templete.push(one.clone());
                 }
             }
-            let data_table = DataTable::new(table_key.clone(), tab, show_name, show_field, master_table, master_field, group_field, output_type, output_path, info, templete);
+            let data_table = DataTable::new(table_key.clone(), tab, show_name, show_field, master_table, master_field, group_field, export_sort, output_type, output_path, info, templete);
             self.data_table.insert(table_key.clone(), data_table);
         }
         return Ok(());
