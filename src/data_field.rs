@@ -161,18 +161,25 @@ impl FieldInfo {
                 },
                 EEditorType::Enum => {
                     let mut v = val.clone();
-                    let mut label = egui::RichText::new("未定义选项").color(Color32::RED);
+                    let mut txt = String::new();
+                    let mut found = false;
                     for one in &self.opt {
                         if one.val != v {continue;}
-                        label = egui::RichText::new(one.show.clone());
+                        txt = format!("[{}]{}", one.val, one.show);
+                        found = true;
+                        break;
                     }
+                    if !found {txt = format!("[{}]未定义选项", v);}
+                    let mut label = egui::RichText::new(txt);
+                    if !found {label = label.color(Color32::RED);}
 
                     let id = format!("{}_{}_combobox", self.name, idx);
                     egui::ComboBox::from_id_source(id)
                     .selected_text(label)
                     .show_ui(ui, |ui| {
                         for one in &self.opt {
-                            ui.selectable_value(&mut v, one.val.clone(), &one.show.clone());
+                            let show = format!("[{}]{}", one.val, one.show);
+                            ui.selectable_value(&mut v, one.val.clone(), show);
                         }
                     });
                     ret = v;
