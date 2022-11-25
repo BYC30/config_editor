@@ -485,12 +485,19 @@ impl SkillEditorApp {
                 click_table = data_table.table_name.clone();
             }
             if !create_tmp.is_empty() {
-                self.templete_target = key.clone();
-                self.templete_table = create_tmp;
-                self.templete_data = HashMap::new();
-                let t = data_table.templete.get(data_table.templete_idx as usize).unwrap();
-                self.templete_content = t.content.clone();
-                self.show_templete = true;
+                let field_info = self.field_group.get(&create_tmp);
+                if field_info.is_some() {
+                    let field_info = field_info.unwrap();
+                    self.templete_target = key.clone();
+                    self.templete_table = create_tmp;
+                    self.templete_data = HashMap::new();
+                    for field in field_info {
+                        self.templete_data.insert(field.name.clone(), field.default.clone());
+                    }
+                    let t = data_table.templete.get(data_table.templete_idx as usize).unwrap();
+                    self.templete_content = t.content.clone();
+                    self.show_templete = true;
+                }
             }
 
             if op == 1 {
