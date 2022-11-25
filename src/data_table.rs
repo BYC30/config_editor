@@ -395,7 +395,15 @@ impl DataTable {
             }
             let layer2 = layer1.get_mut(&sub_group).unwrap();
             let cnt = *key_cnt.get(&key).unwrap();
-            let dup = cnt > 1;
+            let mut dup = cnt > 1;
+            for field in &self.info {
+                let val = utils::map_get_string(one, &field.name, &String::new());
+                let (err, _) = field.check_data(&val);
+                if err {
+                    dup = true;
+                    break;
+                }
+            }
             layer2.push((name, idx - 1, key_num, dup));
         }
         for (_, one) in &mut total {
