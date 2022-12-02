@@ -19,6 +19,12 @@ pub enum AppError {
     ConfigFormatError(String),
     #[error("导入表格key[{0}]未找到")]
     ImportExcelKeyNotFound(String),
+    #[error("文件路径[{0}]未包含Content目录")]
+    UEFileContentNotFound(String),
+    #[error("文件路径[{0}]非uasset")]
+    UEFileNotUasset(String),
+    #[error("文件路径[{0}]文件名获取失败")]
+    UEFileNameNotFound(String),
     #[error("{0}")]
     HintMsg(String),
 }

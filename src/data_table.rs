@@ -374,7 +374,7 @@ impl DataTable {
             let key = utils::map_get_string(&one, &self.key_name, "");
             idx = idx + 1;
             if name.is_none() {continue;}
-            let name = name.unwrap();
+            let mut name = name.unwrap();
             if !master_key.is_empty() && !show_all {
                 let rel_id = one.get(master_key);
                 if rel_id.is_none() {continue;}
@@ -401,6 +401,7 @@ impl DataTable {
                 let (err, _) = field.check_data(&val);
                 if err {
                     dup = true;
+                    name = format!("{} - {}", name, field.name);
                     break;
                 }
             }

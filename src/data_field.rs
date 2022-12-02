@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use anyhow::{Result, bail};
 use eframe::{egui, epaint::Color32};
 
@@ -20,6 +20,8 @@ pub enum EEditorType
     Text,
     Enum,
     Check,
+    UEFile,
+    Blueprint,
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +87,8 @@ impl FieldInfo {
             "Text" => EEditorType::Text,
             "Enum" => EEditorType::Enum,
             "Check" => EEditorType::Check,
+            "UEFile" => EEditorType::UEFile,
+            "Blueprint" => EEditorType::Blueprint,
             _ => {bail!(error::AppError::EditorTypeNotSupport(editor_type))}
         };
         let mut opt: Vec<EnumOption> = Vec::new();
@@ -118,6 +122,28 @@ impl FieldInfo {
     }
 }
 
+fn uasset2str(path: PathBuf, is_bp: bool) -> Result<String> {
+    let exe_path = dunce::canonicalize(path.clone())?;
+    let path_str = exe_path.to_str().unwrap().to_string();
+    let file_name = path.file_name();
+    if file_name.is_none() {bail!(error::AppError::UEFileNameNotFound(path_str))}
+    let file_name = file_name.unwrap().to_str();
+    if file_name.is_none() {bail!(error::AppError::UEFileNameNotFound(path_str))}
+    let file_name = file_name.unwrap();
+    let ret = path_str.find("\\Content\\");
+    if ret.is_none() {bail!(error::AppError::UEFileContentNotFound(path_str))}
+    let ret = ret.unwrap();
+    println!("{}", path_str);
+    let path_str = path_str[ret+9..path_str.len()].to_string();
+    println!("{}", path_str);
+    if !path_str.ends_with(".uasset") {bail!(error::AppError::UEFileNotUasset(path_str))}
+    let name_without_ext = file_name.replace(".uasset", "");
+    let mut replace = format!(".{}", name_without_ext);
+    if is_bp {replace = format!("{}_C", replace);}
+    let path_str = path_str.replace(".uasset", &replace.as_str());
+    let path_str = format!("/Game/{}", path_str).replace("\\\\", "/").replace("\\", "/");
+    return Ok(path_str)
+}
 
 impl FieldInfo {
     fn create_one_ui(&self, val: &String, ui: &mut egui::Ui, idx:i32) -> (bool, String) {
@@ -159,6 +185,42 @@ impl FieldInfo {
                     }
                     ret = v;
                 },
+                EEditorType::UEFile => {
+                    let mut v = val.clone();
+                    if ui.button("...").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("uasset", &["uasset"])
+                        .pick_file() {
+                            let path = uasset2str(path, false);
+                            match path {
+                                Ok(s) => { v = s },
+                                Err(e) => {println!("error:{:?}", e)},
+                            }
+                        }
+                    }
+                    let txt1 = egui::TextEdit::multiline(&mut v)
+                        .desired_width(f32::INFINITY);
+                    ui.add(txt1);
+                    ret = v;
+                }
+                EEditorType::Blueprint => {
+                    let mut v = val.clone();
+                    if ui.button("...").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("uasset", &["uasset"])
+                        .pick_file() {
+                            let path = uasset2str(path, true);
+                            match path {
+                                Ok(s) => { v = s },
+                                Err(_) => {},
+                            }
+                        }
+                    }
+                    let txt1 = egui::TextEdit::multiline(&mut v)
+                        .desired_width(f32::INFINITY);
+                    ui.add(txt1);
+                    ret = v;
+                }
                 EEditorType::Enum => {
                     let mut v = val.clone();
                     let mut txt = String::new();
@@ -186,7 +248,7 @@ impl FieldInfo {
                 }
             }
 
-            let (has_err, msg) = self.check_data(val);
+            let (has_err, msg) = self.check_one_data(val);
             if has_err {
                 let err_info = egui::RichText::new(msg).color(Color32::RED);
                 ui.label(err_info);
@@ -195,7 +257,7 @@ impl FieldInfo {
         return (flag, ret);
     }
 
-    pub fn check_data(&self, val:&String) -> (bool, String){
+    fn check_one_data(&self, val:&String) -> (bool, String){
         let mut ret = false;
         let mut msg = String::new();
         // 类型检查
@@ -229,6 +291,26 @@ impl FieldInfo {
                 }
             },
             _ => {} // 其他不检查
+        }
+        return (ret, msg)
+    }
+
+    pub fn check_data(&self, val:&String) -> (bool, String){
+        let mut ret = false;
+        let mut msg = String::new();
+
+        if self.is_array {
+            let mut arr:Vec<&str> = Vec::new();
+            if !val.is_empty() {
+                arr = val.split(";").collect();
+            }
+            for one in arr {
+                let s = one.to_string();
+                (ret, msg) = self.check_one_data(&s);
+                if ret {break;}
+            }
+        }else{
+            (ret, msg) = self.check_one_data(val);
         }
         return (ret, msg)
     }
