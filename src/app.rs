@@ -611,7 +611,7 @@ impl SkillEditorApp {
 
                 ui.separator();
 
-                egui::ScrollArea::vertical().show(ui, |ui| {
+                egui::ScrollArea::vertical().auto_shrink([false;2]).show(ui, |ui| {
                     for (group, one) in list.iter().sorted_by_key(|a|{a.0}) {
                         egui::CollapsingHeader::new(group)
                         .default_open(true)
