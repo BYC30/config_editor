@@ -315,18 +315,22 @@ impl FieldInfo {
         return (ret, msg)
     }
 
-    pub fn create_ui(&self, map: &mut HashMap<String, String>, ui: &mut egui::Ui, selected: bool) -> bool {
+    pub fn create_ui(&self, map: &mut HashMap<String, String>, ui: &mut egui::Ui, selected: bool, search:&String) -> bool {
         let mut flag = false;
-        let title = format!("{}\r\n{}", self.title, self.name);
-        if ui.selectable_label(selected, &title).clicked(){
-            flag = true;
-        }
-
         let val = map.get(&self.name);
         let v = match val {
             Some(s) => {s.clone()},
             None => {String::new()},
         };
+
+        let title = format!("{}\r\n{}", self.title, self.name);
+        let mut txt = egui::RichText::new(title.clone());
+        if !search.is_empty()  && (title.contains(search) || v.contains(search)) {
+            txt = txt.color(Color32::GREEN)
+        }
+        if ui.selectable_label(selected, txt).clicked(){
+            flag = true;
+        }
 
         if self.is_array {
             let mut arr:Vec<&str> = Vec::new();

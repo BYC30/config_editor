@@ -31,6 +31,7 @@ pub struct DataTable {
     pub cur: i32,
     pub cur_row: i32,
     pub search: String,
+    pub detail_search: String,
     pub show_all: bool,
     pub templete_idx: i32,
 
@@ -62,6 +63,7 @@ impl DataTable {
             cur_row: 0,
             templete_idx: 0,
             search:String::new(),
+            detail_search:String::new(),
             show_all: false,
             error: String::new(),
         };

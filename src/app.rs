@@ -651,7 +651,10 @@ impl SkillEditorApp {
                 return None;
             }else{
                 let mut map = map.unwrap();
-                let click = SkillEditorApp::_draw_data(ui, idx, &data_table.info, &mut map, data_table.cur);
+                ui.horizontal(|ui|{
+                    ui.text_edit_singleline(&mut data_table.detail_search);
+                });
+                let click = SkillEditorApp::_draw_data(ui, idx, &data_table.info, &mut map, data_table.cur, &data_table.detail_search);
                 if click.is_none() {return None;}
                 let idx = click.unwrap();
                 data_table.cur = idx;
@@ -665,11 +668,12 @@ impl SkillEditorApp {
         return ret.inner;
     }
 
-    fn _draw_data(ui: &mut egui::Ui, idx:i32, field: &Vec<FieldInfo>, mut map: &mut HashMap<String, String>, select_field:i32) -> Option<i32> {
+    fn _draw_data(ui: &mut egui::Ui, idx:i32, field: &Vec<FieldInfo>, mut map: &mut HashMap<String, String>, select_field:i32, search:& String) -> Option<i32> {
         let id1 = format!("detail_panel_{}", idx);
         let id2 = format!("detail_desc_panel_{}", idx);
         let mut ret = None;
         let select = field.get(select_field as usize);
+
         if select.is_some() {
             egui::TopBottomPanel::bottom(id2)
                 .resizable(false)
@@ -717,7 +721,7 @@ impl SkillEditorApp {
                         .min_col_width(size.x/2.0 - 64.0);
                     grid.show(ui, |ui|{
                         for (idx, one) in vec {
-                            let f = one.create_ui(&mut map, ui, select_field == idx - 1);
+                            let f = one.create_ui(&mut map, ui, select_field == idx - 1, search);
                             if f {
                                 click_flag = true;
                                 click_idx = idx - 1;
@@ -760,7 +764,7 @@ impl SkillEditorApp {
         .default_width(280.0)
         .show(ctx, |ui| {
             ui.heading(title);
-            click = SkillEditorApp::_draw_data(ui, -1, field, map, select_field)
+            click = SkillEditorApp::_draw_data(ui, -1, field, map, select_field, &String::new())
         });
         return (state, click);
     }
@@ -880,7 +884,7 @@ impl SkillEditorApp {
 
 
                 let field = field.unwrap();
-                let click = SkillEditorApp::_draw_data(ui, -2, field, &mut self.templete_data, self.templete_data_idx);
+                let click = SkillEditorApp::_draw_data(ui, -2, field, &mut self.templete_data, self.templete_data_idx, &String::new());
 
                 if click.is_some(){ self.templete_data_idx = click.unwrap(); }
             }
