@@ -253,7 +253,12 @@ impl DataTable {
             println!("read[{:?}] to string a1[{:?}] a2[{:?}]", p, a1, a2);
             let s = std::fs::read_to_string(p)?;
             let data: Vec<HashMap<String, String>> = serde_json::from_str(&s)?;
-            for one in data {
+            for mut one in data {
+                for field in &self.info {
+                    if one.contains_key(&field.name) {continue;}
+                    one.insert(field.name.clone(), field.default.clone());
+                }
+
                 self.data.push(one);
             }
         }
