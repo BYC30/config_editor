@@ -22,6 +22,7 @@ pub enum EEditorType
     Check,
     UEFile,
     Blueprint,
+    BitFlag,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +40,7 @@ pub struct FieldInfo {
     pub val_type: EFieldType,
     pub editor_type: EEditorType,
     pub opt: Vec<EnumOption>,
+    pub bit_name: Vec<String>,
     pub default: String,
     pub link_table: String,
     pub export: bool,
@@ -89,6 +91,7 @@ impl FieldInfo {
             "Check" => EEditorType::Check,
             "UEFile" => EEditorType::UEFile,
             "Blueprint" => EEditorType::Blueprint,
+            "BitFlag" => EEditorType::BitFlag,
             _ => {bail!(error::AppError::EditorTypeNotSupport(editor_type))}
         };
         let mut opt: Vec<EnumOption> = Vec::new();
@@ -102,6 +105,13 @@ impl FieldInfo {
                 }
             }
         }
+        let mut bit_name = Vec::new();
+        if editor_type == EEditorType::BitFlag {
+            let v: Vec<String> = serde_json::from_str(opt_str.as_str())?;
+            for one in v {
+                bit_name.push(one);
+            }
+        }
         return Ok(FieldInfo { 
             name,
             title,
@@ -110,6 +120,7 @@ impl FieldInfo {
             val_type: data_type,
             editor_type,
             opt,
+            bit_name,
             is_key,
             is_array,
             suffix,
@@ -185,9 +196,31 @@ impl FieldInfo {
                     }
                     ret = v;
                 },
+                EEditorType::BitFlag => {
+                    let mut v = val.clone();
+                    let num = v.parse::<u32>();
+                    let num = match num {
+                        Ok(n) => {n},
+                        Err(_) => {0},
+                    };
+                    let id = format!("{}_{}_bit_flag", self.title, idx);
+
+                    ui.collapsing(self.title.clone(), |ui|{
+                        let mut bit = 1;
+                        let mut result = 0;
+                        for name in &self.bit_name {
+                            let mut select = num & bit != 0;
+                            ui.checkbox(&mut select, name);
+                            if select { result = result + bit; }
+                            bit = bit << 1;
+                        }
+                        v = result.to_string();
+                    });
+                    ret = v;
+                }
                 EEditorType::UEFile => {
                     let mut v = val.clone();
-                    if ui.button("...").clicked() {
+                    if ui.button("选择UE文件").clicked() {
                         if let Some(path) = rfd::FileDialog::new()
                         .add_filter("uasset", &["uasset"])
                         .pick_file() {
@@ -205,7 +238,7 @@ impl FieldInfo {
                 }
                 EEditorType::Blueprint => {
                     let mut v = val.clone();
-                    if ui.button("...").clicked() {
+                    if ui.button("选择蓝图").clicked() {
                         if let Some(path) = rfd::FileDialog::new()
                         .add_filter("uasset", &["uasset"])
                         .pick_file() {
