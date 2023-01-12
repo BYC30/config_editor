@@ -42,30 +42,18 @@ impl MenuInfo {
     }
 
     fn _trigger(&self) -> Result<()> {
-        
-        let path = std::env::current_exe()?;
-        let path = dunce::canonicalize(path)?;
+        let mut current_exe = std::env::current_exe()?;
+        current_exe.pop();
+        current_exe.push(self.exe.clone());
 
-        let mut exe_path = path.clone();
-        exe_path.pop();
-        exe_path.push(self.exe.clone());
-        println!("exe_path {:?}", exe_path);
-        let exe_path = dunce::canonicalize(exe_path)?;
-        let exe_path_str = exe_path.to_str().unwrap().replace("\\", "\\\\");
-        let mut exe_dir = exe_path.clone();
-        exe_dir.pop();
-        let exe_dir_str = exe_dir.to_str().unwrap().replace("\\", "\\\\");
-
-        println!("dir[{}] exe[{}]", exe_dir_str, exe_path_str);
-
-        let cur_dir = std::env::current_dir()?;
-        std::env::set_current_dir(exe_dir.clone())?;
-        let lua = mlua::Lua::new();
-        let cmd = format!("local f = io.popen('cmd /C \"{}\"') f:close()", exe_path_str);
-        println!("Exec cmd {}", cmd);
-        lua.load(&cmd).exec()?;
-        std::env::set_current_dir(cur_dir)?;
-
+        let full_path = dunce::canonicalize(current_exe)?;
+        let mut bat_dir_path = full_path.clone();
+        bat_dir_path.pop();
+        let output = Command::new("cmd")
+            .current_dir(bat_dir_path)
+            .args(&["/C", full_path.to_str().unwrap()])
+            .spawn();
+            
         return Ok(());
     }
 
