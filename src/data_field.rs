@@ -227,7 +227,7 @@ impl FieldInfo {
                     ret = v;
                 }
                 EEditorType::UEFile => {
-                    ui.horizontal(|ui|{
+                    ui.horizontal_centered(|ui|{
                         let mut v = val.clone();
                         if ui.button("选择UE文件").clicked() {
                             if let Some(path) = rfd::FileDialog::new()
@@ -247,7 +247,7 @@ impl FieldInfo {
                     });
                 }
                 EEditorType::Blueprint => {
-                    ui.horizontal(|ui|{
+                    ui.horizontal_centered(|ui|{
                         let mut v = val.clone();
                         if ui.button("选择蓝图").clicked() {
                             if let Some(path) = rfd::FileDialog::new()
