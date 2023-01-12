@@ -652,7 +652,9 @@ impl SkillEditorApp {
             }else{
                 let mut map = map.unwrap();
                 ui.horizontal(|ui|{
-                    ui.text_edit_singleline(&mut data_table.detail_search);
+                    let txt1 = egui::TextEdit::singleline(&mut data_table.detail_search)
+                        .desired_width(f32::INFINITY);
+                    ui.add(txt1);
                 });
                 let click = SkillEditorApp::_draw_data(ui, idx, &data_table.info, &mut map, data_table.cur, &data_table.detail_search);
                 if click.is_none() {return None;}

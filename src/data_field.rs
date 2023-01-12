@@ -325,7 +325,8 @@ impl FieldInfo {
 
         let title = format!("{}\r\n{}", self.title, self.name);
         let mut txt = egui::RichText::new(title.clone());
-        if !search.is_empty()  && (title.contains(search) || v.contains(search)) {
+        let search_low = search.to_lowercase();
+        if !search_low.is_empty()  && (title.to_lowercase().contains(&search_low) || v.to_lowercase().contains(&search_low)) {
             txt = txt.color(Color32::GREEN)
         }
         if ui.selectable_label(selected, txt).clicked(){
