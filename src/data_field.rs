@@ -173,7 +173,7 @@ impl FieldInfo {
             match self.editor_type {
                 EEditorType::Const => {
                     let mut v = val.clone();
-                    let txt1 = egui::TextEdit::multiline(&mut v).interactive(false)
+                    let txt1 = egui::TextEdit::singleline(&mut v).interactive(false)
                         .desired_width(f32::INFINITY);
                     ui.add(txt1);
                     ret = v;
@@ -189,9 +189,13 @@ impl FieldInfo {
                 EEditorType::Text => {
                     let mut v = val.clone();
                     
-                    let txt1 = egui::TextEdit::multiline(&mut v)
-                    .desired_width(f32::INFINITY);
-                    if ui.add(txt1).gained_focus(){
+                    let txt = if self.val_type == EFieldType::Number {
+                        egui::TextEdit::singleline(&mut v).desired_width(f32::INFINITY)
+                    }else{
+                        egui::TextEdit::multiline(&mut v).desired_width(f32::INFINITY)
+                    };
+
+                    if ui.add(txt).gained_focus(){
                         flag = true;
                     }
                     ret = v;
@@ -203,56 +207,64 @@ impl FieldInfo {
                         Ok(n) => {n},
                         Err(_) => {0},
                     };
-                    let id = format!("{}_{}_bit_flag", self.title, idx);
 
                     ui.collapsing(self.title.clone(), |ui|{
                         let mut bit = 1;
                         let mut result = 0;
                         for name in &self.bit_name {
                             let mut select = num & bit != 0;
-                            ui.checkbox(&mut select, name);
+                            if ui.checkbox(&mut select, name).gained_focus(){
+                                flag = true;
+                            }
                             if select { result = result + bit; }
                             bit = bit << 1;
                         }
                         v = result.to_string();
                     });
+                    let txt1 = egui::TextEdit::singleline(&mut v).interactive(false)
+                        .desired_width(f32::INFINITY);
+                    ui.add(txt1);
                     ret = v;
                 }
                 EEditorType::UEFile => {
-                    let mut v = val.clone();
-                    if ui.button("选择UE文件").clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("uasset", &["uasset"])
-                        .pick_file() {
-                            let path = uasset2str(path, false);
-                            match path {
-                                Ok(s) => { v = s },
-                                Err(e) => {println!("error:{:?}", e)},
+                    ui.horizontal(|ui|{
+                        let mut v = val.clone();
+                        if ui.button("选择UE文件").clicked() {
+                            if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("uasset", &["uasset"])
+                            .pick_file() {
+                                let path = uasset2str(path, false);
+                                match path {
+                                    Ok(s) => { v = s },
+                                    Err(e) => {println!("error:{:?}", e)},
+                                }
                             }
                         }
-                    }
-                    let txt1 = egui::TextEdit::multiline(&mut v)
-                        .desired_width(f32::INFINITY);
-                    ui.add(txt1);
-                    ret = v;
+                        let txt1 = egui::TextEdit::singleline(&mut v)
+                            .desired_width(f32::INFINITY);
+                        ui.add(txt1);
+                        ret = v;
+                    });
                 }
                 EEditorType::Blueprint => {
-                    let mut v = val.clone();
-                    if ui.button("选择蓝图").clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("uasset", &["uasset"])
-                        .pick_file() {
-                            let path = uasset2str(path, true);
-                            match path {
-                                Ok(s) => { v = s },
-                                Err(_) => {},
+                    ui.horizontal(|ui|{
+                        let mut v = val.clone();
+                        if ui.button("选择蓝图").clicked() {
+                            if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("uasset", &["uasset"])
+                            .pick_file() {
+                                let path = uasset2str(path, true);
+                                match path {
+                                    Ok(s) => { v = s },
+                                    Err(_) => {},
+                                }
                             }
                         }
-                    }
-                    let txt1 = egui::TextEdit::multiline(&mut v)
-                        .desired_width(f32::INFINITY);
-                    ui.add(txt1);
-                    ret = v;
+                        let txt1 = egui::TextEdit::singleline(&mut v)
+                            .desired_width(f32::INFINITY);
+                        ui.add(txt1);
+                        ret = v;
+                    });
                 }
                 EEditorType::Enum => {
                     let mut v = val.clone();
