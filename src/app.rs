@@ -49,11 +49,11 @@ impl MenuInfo {
         let full_path = dunce::canonicalize(current_exe)?;
         let mut bat_dir_path = full_path.clone();
         bat_dir_path.pop();
-        let output = Command::new("cmd")
+        Command::new("cmd")
             .current_dir(bat_dir_path)
             .args(&["/C", full_path.to_str().unwrap()])
-            .spawn();
-            
+            .spawn()?;
+
         return Ok(());
     }
 
