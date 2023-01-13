@@ -1,8 +1,12 @@
-use std::{collections::{HashMap, HashSet}, fmt::format, process::Command, arch::x86_64::_MM_FROUND_CUR_DIRECTION, path::PathBuf};
+use std::{collections::{HashMap, HashSet}, fmt::format, process::Command, arch::x86_64::_MM_FROUND_CUR_DIRECTION, path::PathBuf, sync::Mutex};
 use eframe::{egui::{self, Ui, RichText, output}, App, epaint::Color32, glow::GEOMETRY_OUTPUT_TYPE};
 use anyhow::{Result, bail};
 use itertools::Itertools;
-use crate::{utils, error, data_table::{DataTable, self}, data_field::FieldInfo};
+use crate::{utils, error, data_table::{DataTable, self}, data_field::{FieldInfo}};
+
+lazy_static! {
+    pub static ref TEMPLETE_MAP: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
+}
 
 #[derive(Debug)]
 struct TabConfig {
@@ -18,9 +22,11 @@ struct LinkInfo{
 
 #[derive(Debug, Clone)]
 pub struct TempleteInfo{
-    title: String,
-    table: String,
-    content: HashMap<String, String>,
+    pub title: String,
+    pub table: String,
+    pub content: HashMap<String, String>,
+    pub expr: String,
+    pub field: Vec<FieldInfo>,
 }
 
 #[derive(Debug, Clone)]
@@ -217,10 +223,10 @@ impl SkillEditorApp {
             let field = FieldInfo::parse(name, title, desc, group, val_type, editor_type, opt, default, link_table, export, output_header)?;
             if self.field_group.contains_key(&table_key) {
                 let group = self.field_group.get_mut(&table_key).unwrap();
-                group.push(field);
+                group.push(field.clone());
             }
             else{
-                self.field_group.insert(table_key.clone(), vec![field]);
+                self.field_group.insert(table_key.clone(), vec![field.clone()]);
             }
         }
 
@@ -298,6 +304,7 @@ impl SkillEditorApp {
     }
 
     fn load_templete(&mut self) -> Result<()> {
+        let mut templete_map = TEMPLETE_MAP.lock().unwrap();
         let mut path = std::env::current_exe()?;
         path.pop();
         path.push("config.xlsx");
@@ -313,6 +320,7 @@ impl SkillEditorApp {
             if title.is_empty() {continue;}
             let table = row[2].to_string();
             let content = row[3].to_string();
+            let expr = row[4].to_string();
             let ret = serde_json::from_str(content.as_str());
             if ret.is_err() {
                 let msg = format!("模板[{}]的内容[{}]解析失败", title, content);
@@ -324,7 +332,18 @@ impl SkillEditorApp {
                 self.templete.insert(table_key.clone(), Vec::new());
             }
             let list = self.templete.get_mut(&table_key).unwrap();
-            list.push(TempleteInfo { title, table, content });
+
+            if self.field_group.contains_key(&table) {
+                let field = self.field_group.get(&table).unwrap();
+                let field = field.clone();
+                let info = TempleteInfo { title, table, content, expr, field };
+                if !info.expr.is_empty() {
+                    templete_map.insert(info.table.clone(), info.clone());
+                }
+                list.push(info.clone());
+            }else{
+                println!("模板[{}]的字段配置[{}]未找到", title, table);
+            }
         }
         return Ok(());
     }

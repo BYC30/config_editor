@@ -1,8 +1,10 @@
 use std::{collections::HashMap, path::PathBuf};
 use anyhow::{Result, bail};
 use eframe::{egui, epaint::Color32};
+use serde::{Serialize, Deserialize};
 
-use crate::error;
+use crate::{error, app::{TEMPLETE_MAP, TempleteInfo}};
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum EFieldType {
@@ -23,6 +25,7 @@ pub enum EEditorType
     UEFile,
     Blueprint,
     BitFlag,
+    TempleteExpr,
 }
 
 #[derive(Debug, Clone)]
@@ -92,6 +95,7 @@ impl FieldInfo {
             "UEFile" => EEditorType::UEFile,
             "Blueprint" => EEditorType::Blueprint,
             "BitFlag" => EEditorType::BitFlag,
+            "TempleteExpr" => EEditorType::TempleteExpr,
             _ => {bail!(error::AppError::EditorTypeNotSupport(editor_type))}
         };
         let mut opt: Vec<EnumOption> = Vec::new();
@@ -156,7 +160,139 @@ fn uasset2str(path: PathBuf, is_bp: bool) -> Result<String> {
     return Ok(path_str)
 }
 
+#[derive(Serialize, Deserialize)]
+struct TempleteData{
+    id: String,
+    expr: String,
+    data: HashMap<String, String>,
+}
+
+impl TempleteData {
+    fn get_expr(&self, info: &TempleteInfo) -> String {
+        let mut expr = info.expr.clone();
+        for (kk, vv) in &self.data {
+            let templete_key = format!("%{}%", kk);
+            expr = expr.replace(templete_key.as_str(), vv.as_str());
+        }
+        return expr;
+    }
+
+    fn get_output(&self, info: &TempleteInfo) -> String {
+        let data = serde_json::to_string(self).unwrap();
+        let expr = self.get_expr(info);
+        return format!("-- {}\r\n{}", data, expr);
+    }
+}
+
 impl FieldInfo {
+    fn draw_one_templete(&self, field:&Vec<FieldInfo>, mut map:&mut HashMap<String, String>, ui: &mut egui::Ui, idx:i32) -> bool {
+        let mut draw_info:Vec<(String, Vec<(i32, FieldInfo)>)> = Vec::new();
+        let mut idx = 0;
+        for one in field {
+            idx = idx + 1;
+            let group = one.group.clone();
+            let mut found = false;
+            for (k, v) in &mut draw_info {
+                if *k == group {
+                    v.push((idx, one.clone()));
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                draw_info.push((group, vec![(idx, one.clone())]));
+            }
+        }
+        
+        let size = ui.available_size();
+        let mut click_flag = false;
+        let grid_id = format!("detail_panel_grid_{}", idx);
+        let grid = egui::Grid::new(grid_id)
+            .num_columns(2)
+            .spacing([4.0, 4.0])
+            .striped(true)
+            .min_col_width(size.x/2.0 - 64.0);
+        grid.show(ui, |ui|{
+            for one in field {
+                let f = one.create_ui(&mut map, ui, false, &String::new());
+                if f {
+                    click_flag = true;
+                }
+                ui.end_row();
+            }
+        });
+
+        return click_flag;
+    }
+
+    fn draw_templete(&self, data:&mut Vec<TempleteData>, ui: &mut egui::Ui, idx:i32) -> (bool, String){
+        let id1 = format!("detail_panel_{}_{}", self.name, idx);
+        let id2 = format!("detail_desc_panel_{}_{}", self.name, idx);
+
+        let templete = TEMPLETE_MAP.lock().unwrap();
+        let mut click = false;
+        let mut ret = Vec::new();
+        let mut list = Vec::new();
+        let mut first = String::new();
+        for (k, v) in &*templete {
+            if first.is_empty() {first = k.clone();}
+            list.push((v.title.clone(), k.clone()));
+        }
+        list.sort();
+        if first.is_empty() {
+            let err_info = egui::RichText::new("无可用模板").color(Color32::RED);
+            ui.label(err_info);
+            return (false, String::new());
+        }
+
+        let mut child_idx = 0;
+        for one in data {
+            child_idx = child_idx + 1;
+            let mut key = &one.id;
+            let mut reset = false;
+            if !templete.contains_key(key) {
+                key = &first;
+                reset = true;
+            }
+            let info = templete.get(key).unwrap();
+            let id = format!("{}_{}_{}_combobox", self.name, idx, child_idx);
+            let mut new_id = key.clone();
+            egui::ComboBox::from_id_source(id)
+                .selected_text(info.title.clone())
+                .show_ui(ui, |ui| {
+                    for (show, key) in &list {
+                        let resp = ui.selectable_value(&mut new_id, key.clone(), show);
+                        if resp.changed() {
+                            reset = true;
+                            click = true;
+                        }
+                        if resp.gained_focus(){
+                            click = true;
+                        }
+                    }
+                });
+            one.id = new_id;
+            if reset {
+                let info = templete.get(&one.id).unwrap();
+                for field in &info.field {
+                    one.data.insert(field.name.clone(), field.default.clone());
+                }
+            }
+            let id = format!("{}_{}_{}_CollapsingHeader", self.name, idx, child_idx);
+            let expr = one.get_expr(info);
+
+            ui.label(expr);
+            egui::CollapsingHeader::new(info.title.clone())
+                .id_source(id).show(ui, |ui|{
+                    if self.draw_one_templete(&info.field, &mut one.data, ui, idx){
+                        click = true;
+                    }
+                });
+            ret.push(one.get_expr(info));
+        }
+        return (false, ret.join("\r\n"));
+    }
+
     fn create_one_ui(&self, val: &String, ui: &mut egui::Ui, idx:i32) -> (bool, String) {
         let mut flag = false;
         let mut ret = String::new();
@@ -199,6 +335,33 @@ impl FieldInfo {
                         flag = true;
                     }
                     ret = v;
+                },
+                EEditorType::TempleteExpr => {
+                    let mut v = val.clone();
+                    ui.vertical(|ui| {
+                        let lines = v.lines();
+                        let mut json = "[]";
+                        for one in lines {
+                            json = one.trim_start_matches("-");
+                            break;
+                        }
+                        let result: Result<Vec<TempleteData>, serde_json::Error> = serde_json::from_str(json);
+                        if result.is_err() {json = "[]"}
+                        let mut data:Vec<TempleteData> = serde_json::from_str(json).unwrap();
+                        ui.horizontal(|ui|{
+                            if ui.button("+").clicked() {
+                                data.push(TempleteData { id: String::new(), expr: String::new(), data: HashMap::new() });
+                            }
+                            if ui.button("-").clicked() {
+                                data.pop();
+                            }
+                        });
+                        let (click, expr) = self.draw_templete(&mut data, ui, idx);
+                        if click {flag = true;}
+                        let data = serde_json::to_string(&data).unwrap();
+                        ret = format!("--{}\r\n{}", data, expr);
+                    });
+                    
                 },
                 EEditorType::BitFlag => {
                     let mut v = val.clone();
@@ -374,7 +537,9 @@ impl FieldInfo {
         if !search_low.is_empty()  && (title.to_lowercase().contains(&search_low) || v.to_lowercase().contains(&search_low)) {
             txt = txt.color(Color32::GREEN)
         }
-        if ui.selectable_label(selected, txt).clicked(){
+        let resp = ui.selectable_label(selected, txt)
+            .on_hover_text(self.desc.clone());
+        if resp.clicked(){
             flag = true;
         }
 
@@ -403,7 +568,7 @@ impl FieldInfo {
                 }
                 let s = new.join(";");
                 map.insert(self.name.clone(), s);
-            });    
+            });
         }else{
             let (f, ret) = self.create_one_ui(&v, ui, 1);
             if f {flag = true;}
