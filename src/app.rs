@@ -92,6 +92,8 @@ pub struct SkillEditorApp {
     link_table: String,
     link_src_table: String,
     link_src_field: String,
+
+    console_show: bool,
 }
 
 impl SkillEditorApp {
@@ -113,6 +115,9 @@ impl SkillEditorApp {
             .push("my_font".to_owned());
         cc.egui_ctx.set_fonts(fonts);
         cc.egui_ctx.set_visuals(egui::Visuals::dark());
+
+        utils::hide_console_window();
+
         Self::default()
     }
 
@@ -362,6 +367,14 @@ impl SkillEditorApp {
             egui::menu::bar(ui, |ui|{
                 egui::widgets::global_dark_light_mode_switch(ui);
                 if ui.button("保存").clicked(){ self.save_data();}
+                if ui.button("控制台").clicked() {
+                    if self.console_show {
+                        utils::hide_console_window();
+                    }else{
+                        utils::show_console_window();
+                    }
+                    self.console_show = !self.console_show;
+                }
                 if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
                     self.save_data();
                 }
@@ -644,7 +657,7 @@ impl SkillEditorApp {
                         .desired_width(f32::INFINITY);
                     ui.add(txt1);
                 });
-                let click = SkillEditorApp::_draw_data(ui, idx, &data_table.info, &mut map, data_table.cur, &data_table.detail_search);
+                let click = SkillEditorApp::_draw_data(ui, idx.to_string(), &data_table.info, &mut map, data_table.cur, &data_table.detail_search);
                 if click.is_none() {return None;}
                 let idx = click.unwrap();
                 data_table.cur = idx;
@@ -658,7 +671,7 @@ impl SkillEditorApp {
         return ret.inner;
     }
 
-    fn _draw_data(ui: &mut egui::Ui, idx:i32, field: &Vec<FieldInfo>, mut map: &mut HashMap<String, String>, select_field:i32, search:& String) -> Option<i32> {
+    pub fn _draw_data(ui: &mut egui::Ui, idx:String, field: &Vec<FieldInfo>, mut map: &mut HashMap<String, String>, select_field:i32, search:& String) -> Option<i32> {
         let id1 = format!("detail_panel_{}", idx);
         let id2 = format!("detail_desc_panel_{}", idx);
         let mut ret = None;
@@ -754,7 +767,7 @@ impl SkillEditorApp {
         .default_width(280.0)
         .show(ctx, |ui| {
             ui.heading(title);
-            click = SkillEditorApp::_draw_data(ui, -1, field, map, select_field, &String::new())
+            click = SkillEditorApp::_draw_data(ui, "LinkWindow".to_string(), field, map, select_field, &String::new())
         });
         return (state, click);
     }
@@ -874,7 +887,7 @@ impl SkillEditorApp {
 
 
                 let field = field.unwrap();
-                let click = SkillEditorApp::_draw_data(ui, -2, field, &mut self.templete_data, self.templete_data_idx, &String::new());
+                let click = SkillEditorApp::_draw_data(ui, "TempleteWindow".to_string(), field, &mut self.templete_data, self.templete_data_idx, &String::new());
 
                 if click.is_some(){ self.templete_data_idx = click.unwrap(); }
             }
@@ -910,6 +923,7 @@ impl Default for SkillEditorApp {
             link_src_table: String::new(),
             link_src_field: String::new(),
             menus: Vec::new(),
+            console_show: false,
         }
     }
 }
