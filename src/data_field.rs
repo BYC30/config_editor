@@ -338,30 +338,42 @@ impl FieldInfo {
                 },
                 EEditorType::TempleteExpr => {
                     let mut v = val.clone();
+                    let mut format = true;
+
                     ui.vertical(|ui| {
                         let lines = v.lines();
                         let mut json = "[]";
-                        for one in lines {
-                            json = one.trim_start_matches("-");
-                            break;
+                        if !v.is_empty() {
+                            for one in lines {
+                                json = one.trim_start_matches("-");
+                                break;
+                            }
                         }
                         let result: Result<Vec<TempleteData>, serde_json::Error> = serde_json::from_str(json);
-                        if result.is_err() {json = "[]"}
-                        let mut data:Vec<TempleteData> = serde_json::from_str(json).unwrap();
-                        ui.horizontal(|ui|{
-                            if ui.button("+").clicked() {
-                                data.push(TempleteData { id: String::new(), expr: String::new(), data: HashMap::new() });
-                            }
-                            if ui.button("-").clicked() {
-                                data.pop();
-                            }
-                        });
-                        let (click, expr) = self.draw_templete(&mut data, ui, idx);
-                        if click {flag = true;}
-                        let data = serde_json::to_string(&data).unwrap();
-                        ret = format!("--{}\r\n{}", data, expr);
+                        if result.is_err() {format = false;}
+
+                        if format {
+                            let mut data:Vec<TempleteData> = serde_json::from_str(json).unwrap();
+                            ui.horizontal(|ui|{
+                                if ui.button("+").clicked() {
+                                    data.push(TempleteData { id: String::new(), expr: String::new(), data: HashMap::new() });
+                                }
+                                if ui.button("-").clicked() {
+                                    data.pop();
+                                }
+                            });
+                            let (click, expr) = self.draw_templete(&mut data, ui, idx);
+                            if click {flag = true;}
+                            let data = serde_json::to_string(&data).unwrap();
+                            ret = format!("--{}\r\n{}", data, expr);
+                        }
+                        else{
+                            ui.label("格式错误, 请删除表达式后再使用模板功能");
+                            let txt = egui::TextEdit::multiline(&mut v).desired_width(f32::INFINITY);
+                            ui.add(txt);
+                            ret = v;
+                        }
                     });
-                    
                 },
                 EEditorType::BitFlag => {
                     let mut v = val.clone();
