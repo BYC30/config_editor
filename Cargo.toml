@@ -18,7 +18,7 @@ load_file = "1.0.1"
 xlsxwriter = "0.3.5"
 itertools = "0.10.3"
 walkdir = "2.3.2"
-mlua = { version = "0.8", features = ["lua54", "vendored"] }
+mlua = { version = "0.8", features = ["lua54", "vendored", "serialize"] }
 dunce = "1.0.3"
 winapi = {version = "0.3", features = ["wincon", "winuser"]}
 lazy_static = "1.4.0"

@@ -2,16 +2,24 @@ use std::{collections::{HashMap, HashSet}, fmt::format, process::Command, arch::
 use eframe::{egui::{self, Ui, RichText, output}, App, epaint::Color32, glow::GEOMETRY_OUTPUT_TYPE};
 use anyhow::{Result, bail};
 use itertools::Itertools;
+use serde::{Serialize, Deserialize};
 use crate::{utils, error, data_table::{DataTable, self}, data_field::{FieldInfo}};
 
 lazy_static! {
-    pub static ref TEMPLETE_MAP: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
+    pub static ref TEMPLETE_MAP_EXPR: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
+    pub static ref TEMPLETE_MAP_SUB_FIELD: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TabInfo{
+    tab: String,
+    master_table: String,
 }
 
 #[derive(Debug)]
 struct TabConfig {
     name: String,
-    tabs: Vec<String>,
+    tabs: Vec<TabInfo>,
 }
 
 #[derive(Debug)]
@@ -131,29 +139,19 @@ impl SkillEditorApp {
         let mut path = std::env::current_exe()?;
         path.pop();
 
-        for group in &self.tab_cfg {
-            for table_key in &group.tabs {
-                let data_table = self.data_table.get(table_key);
-                if data_table.is_none() {continue;}
-                let data_table = data_table.unwrap();
-
-                let mut idx = 0;
-                for output_type in &data_table.output_type {
-                    if data_table.output_path.len() > idx {
-                        let mut p = path.clone();
-                        let path = data_table.output_path.get(idx).unwrap();
-                        p.push(path.clone());
-                        if !path.ends_with(".csv") {
-                            let f = format!("{}.csv", table_key);
-                            p.push(f);
-                        }
-                        data_table._save_csv(p, output_type)?;
-                    }
-                    idx = idx + 1;
+        for (_, data_table) in &self.data_table {
+            let mut idx = 0;
+            for output_type in &data_table.output_type {
+                if data_table.output_path.len() > idx {
+                    let mut p = path.clone();
+                    let path = data_table.output_path.get(idx).unwrap();
+                    p.push(path.clone());
+                    data_table.output(p, output_type)?;
                 }
-                let p = data_table.get_save_json()?;
-                data_table._save_json(p)?;
+                idx = idx + 1;
             }
+            let p = data_table.get_save_json()?;
+            data_table._save_json(p)?;
         }
 
         Ok(())
@@ -168,65 +166,69 @@ impl SkillEditorApp {
     }
 
     fn load_menu_config(&mut self) -> Result<()> {
+        #[derive(Serialize, Deserialize)]
+        struct MenuConfig {
+            menu: String,
+            name: String,
+            exe: String,
+            hotkey: String,
+        }
+
         let mut path = std::env::current_exe()?;
         path.pop();
-        path.push("config.xlsx");
-        let range = utils::open_excel2(&path, "菜单配置")?;
+        path.push("config");
+        path.push("menu.json");
 
-        let mut idx = 0;
-        for row in range.rows() {
-            idx = idx + 1;
-            if idx <= 1 {continue;}
-            let menu = row[0].to_string();
-            let name = row[1].to_string();
-            if name.is_empty() {continue;}
-            let exe = row[2].to_string();
-            let hotkey = row[3].to_string();
-            let hotkey = utils::translate_key(&hotkey);
+        let s = std::fs::read_to_string(path)?;
+        let data: Vec<MenuConfig> = serde_json::from_str(&s)?;
+
+        for one in data {
+            let hotkey = utils::translate_key(&one.hotkey);
             
-            self.menus.push(MenuInfo { menu, name, exe, hotkey });
+            self.menus.push(MenuInfo {
+                menu: one.menu,
+                name: one.name,
+                exe: one.exe,
+                hotkey
+            });
         }
 
         return Ok(()); 
     }
 
     fn load_field_config(&mut self) -> Result<()> {
+        #[derive(Serialize, Deserialize)]
+        struct FieldConfig {
+            table_key: String,
+            name: String,
+            val_type: String,
+            editor_type: String,
+            opt: Vec<String>,
+            default: String,
+            title: String,
+            desc: String,
+            group: String,
+            link_table: String,
+            export: bool,
+            output_header: Vec<String>,
+        }
+
         let mut path = std::env::current_exe()?;
         path.pop();
-        path.push("config.xlsx");
-        let range = utils::open_excel2(&path, "字段配置")?;
+        path.push("config");
+        path.push("field.json");
+        
+        let s = std::fs::read_to_string(path)?;
+        let data: Vec<FieldConfig> = serde_json::from_str(&s)?;
 
-        let mut idx = 0;
-        for row in range.rows() {
-            idx = idx + 1;
-            if idx <= 1 {continue;}
-            let table_key = row[0].to_string();
-            if table_key.is_empty() {continue;}
-            let name = row[1].to_string();
-            if name.is_empty() {continue;}
-            let val_type = row[2].to_string();
-            let editor_type = row[3].to_string();
-            let opt = row[4].to_string();
-            let default = row[5].to_string();
-            let title = row[6].to_string();
-            let desc = row[7].to_string();
-            let group = row[8].to_string();
-            let link_table = row[9].to_string();
-            let export = row[10].to_string().to_lowercase() != "true";
-            let output_header = row[11].to_string();
-            let output_header:Vec<String> = match output_header.as_str() {
-                ""=> Vec::new(),
-                _=>{serde_json::from_str(&output_header)?}
-            };
-            
-            println!("parse field[{}] opt[{}] default[{}] editor_type[{}] export[{}]", name, opt, default, editor_type, export);
-            let field = FieldInfo::parse(name, title, desc, group, val_type, editor_type, opt, default, link_table, export, output_header)?;
-            if self.field_group.contains_key(&table_key) {
-                let group = self.field_group.get_mut(&table_key).unwrap();
+        for one in data {
+            let field = FieldInfo::parse(one.name, one.title, one.desc, one.group, one.val_type, one.editor_type, one.opt, one.default, one.link_table, one.export, one.output_header)?;
+            if self.field_group.contains_key(&one.table_key) {
+                let group = self.field_group.get_mut(&one.table_key).unwrap();
                 group.push(field.clone());
             }
             else{
-                self.field_group.insert(table_key.clone(), vec![field.clone()]);
+                self.field_group.insert(one.table_key.clone(), vec![field.clone()]);
             }
         }
 
@@ -234,49 +236,49 @@ impl SkillEditorApp {
     }
 
     fn load_tab_config(&mut self) -> Result<()>{
+        #[derive(Serialize, Deserialize)]
+        struct TableConfig {
+            table_key: String,
+            show_name: String,
+            show_field: String,
+            master_field: String,
+            group_field: String,
+            export_sort: String,
+            output_type: Vec<String>,
+            output_path: Vec<String>,
+        }
+
+        #[derive(Serialize, Deserialize)]
+        struct TabCfg {
+            title: String,
+            tabs: Vec<TabInfo>,
+        }
+
         let mut path = std::env::current_exe()?;
         path.pop();
-        path.push("config.xlsx");
-        let range = utils::open_excel2(&path, "页签配置")?;
+        path.push("config");
 
-        let mut idx = 0;
-        for row in range.rows() {
-            idx = idx + 1;
-            if idx <= 1 {continue;}
-            let table_key = row[0].to_string();
-            if table_key.is_empty() {continue;}
-            let tab = row[1].to_string();
-            if tab.is_empty() {continue;}
-            let show_name = row[2].to_string();
-            let show_field = row[3].to_string();
-            let master_table = row[4].to_string();
-            let master_field = row[5].to_string();
-            let group_field = row[6].to_string();
-            let export_sort = row[7].to_string();
-            let output_type = row[8].to_string();
-            let output_type:Vec<String> = match output_type.as_str() {
-                ""=> Vec::new(),
-                _=>{serde_json::from_str(&output_type)?}
-            };
-            let output_path = row[9].to_string();
-            let output_path:Vec<String> = match output_path.as_str() {
-                ""=> Vec::new(),
-                _=>{serde_json::from_str(&output_path)?}
-            };
-           
-            let mut found = false;
-            for one in &mut self.tab_cfg {
-                if one.name == tab {
-                    one.tabs.push(table_key.clone());
-                    found = true;
-                }
-            }
-            if !found {self.tab_cfg.push(TabConfig{name:tab.clone(), tabs:vec![table_key.clone()]});}
+        path.push("tab.json");
+        let s = std::fs::read_to_string(path.clone())?;
+        let data: Vec<TabCfg> = serde_json::from_str(&s)?;
+        for one in data {
+            self.tab_cfg.push(TabConfig{
+                name:one.title,
+                tabs:one.tabs
+            });
+        }
+
+        path.pop();
+        path.push("table.json");
+        let s = std::fs::read_to_string(path)?;
+        let data: Vec<TableConfig> = serde_json::from_str(&s)?;
+
+        for one in data {
             let mut info = Vec::new();
-            if self.field_group.contains_key(&table_key) {
-                let group_field = FieldInfo::parse("__Group__".to_string(), "分组".to_string(), "编辑器分组".to_string(), "分组".to_string(), "S".to_string(), "Text".to_string(), String::new(), "默认分组".to_string(), String::new(), false, Vec::new())?;
-                let sub_group_field = FieldInfo::parse("__SubGroup__".to_string(), "子分组".to_string(), "编辑器子分组".to_string(), "分组".to_string(), "S".to_string(), "Text".to_string(), String::new(), "默认子分组".to_string(), String::new(), false, Vec::new())?;
-                let field = self.field_group.get_mut(&table_key).unwrap();
+            if self.field_group.contains_key(&one.table_key) {
+                let group_field = FieldInfo::parse("__Group__".to_string(), "分组".to_string(), "编辑器分组".to_string(), "分组".to_string(), "S".to_string(), "Text".to_string(), Vec::new(), "默认分组".to_string(), String::new(), false, Vec::new())?;
+                let sub_group_field = FieldInfo::parse("__SubGroup__".to_string(), "子分组".to_string(), "编辑器子分组".to_string(), "分组".to_string(), "S".to_string(), "Text".to_string(), Vec::new(), "默认子分组".to_string(), String::new(), false, Vec::new())?;
+                let field = self.field_group.get_mut(&one.table_key).unwrap();
                 field.insert(0, sub_group_field);
                 field.insert(0, group_field);
                 for one in field {
@@ -284,15 +286,16 @@ impl SkillEditorApp {
                 }
             }
             let mut templete = Vec::new();
-            if self.templete.contains_key(&table_key) {
-                let t = self.templete.get(&table_key).unwrap();
+            if self.templete.contains_key(&one.table_key) {
+                let t = self.templete.get(&one.table_key).unwrap();
                 for one in t {
                     templete.push(one.clone());
                 }
             }
-            let data_table = DataTable::new(table_key.clone(), tab, show_name, show_field, master_table, master_field, group_field, export_sort, output_type, output_path, info, templete);
-            self.data_table.insert(table_key.clone(), data_table);
+            let data_table = DataTable::new(one.table_key.clone(), one.show_name, one.show_field, one.master_field, one.group_field, one.export_sort, one.output_type, one.output_path, info, templete);
+            self.data_table.insert(one.table_key.clone(), data_table);
         }
+
         return Ok(());
     }
 
@@ -304,61 +307,86 @@ impl SkillEditorApp {
     }
 
     fn load_templete(&mut self) -> Result<()> {
-        let mut templete_map = TEMPLETE_MAP.lock().unwrap();
+        #[derive(Serialize, Deserialize)]
+        struct TempleteConfig {
+            table_key: String,
+            title: String,
+            table: String,
+            content: HashMap<String, String>,
+            expr: String,
+            templete_type: String,
+        }
+        
+        let mut templete_map = TEMPLETE_MAP_EXPR.lock().unwrap();
+        templete_map.clear();
+        let mut templete_sub_field_map = TEMPLETE_MAP_SUB_FIELD.lock().unwrap();
+        templete_sub_field_map.clear();
         let mut path = std::env::current_exe()?;
         path.pop();
-        path.push("config.xlsx");
-        let range = utils::open_excel2(&path, "模板配置")?;
+        path.push("config");
+        path.push("templete.json");
 
-        let mut idx = 0;
-        for row in range.rows() {
-            idx = idx + 1;
-            if idx <= 1 {continue;}
-            let table_key = row[0].to_string();
-            if table_key.is_empty() {continue;}
-            let title = row[1].to_string();
-            if title.is_empty() {continue;}
-            let table = row[2].to_string();
-            let content = row[3].to_string();
-            let expr = row[4].to_string();
-            let ret = serde_json::from_str(content.as_str());
-            if ret.is_err() {
-                let msg = format!("模板[{}]的内容[{}]解析失败", title, content);
-                self.msg(msg, "错误".to_string());
-                continue;
-            }
-            let content = ret.unwrap();
-            if !self.templete.contains_key(&table_key) {
-                self.templete.insert(table_key.clone(), Vec::new());
-            }
-            let list = self.templete.get_mut(&table_key).unwrap();
+        let s = std::fs::read_to_string(path)?;
+        let data: Vec<TempleteConfig> = serde_json::from_str(&s)?;
 
-            if self.field_group.contains_key(&table) {
-                let field = self.field_group.get(&table).unwrap();
+        for one in data {
+            if !self.templete.contains_key(&one.table_key) {
+                self.templete.insert(one.table_key.clone(), Vec::new());
+            }
+            let list = self.templete.get_mut(&one.table_key).unwrap();
+
+            println!("LoadTemplete[{}] type[{}]", one.table, one.templete_type);
+            if self.field_group.contains_key(&one.table) {
+                let field = self.field_group.get(&one.table).unwrap();
                 let field = field.clone();
-                let info = TempleteInfo { title, table, content, expr, field };
-                if !info.expr.is_empty() {
+                let info = TempleteInfo {
+                    title: one.title,
+                    table: one.table,
+                    content: one.content,
+                    expr: one.expr,
+                    field
+                };
+
+                if one.templete_type == "Expr" {
                     templete_map.insert(info.table.clone(), info.clone());
                 }
+                if one.templete_type == "SubField" {
+                    templete_sub_field_map.insert(info.table.clone(), info.clone());
+                    println!("LoadSubField templete key[{}] v[{:?}]", info.table, info);
+                }
+
                 list.push(info.clone());
             }else{
-                println!("模板[{}]的字段配置[{}]未找到", title, table);
+                println!("模板[{}]的字段配置[{}]未找到", one.title, one.table);
             }
         }
+
         return Ok(());
     }
 
     pub fn _load_config(&mut self) -> Result<()> {
+        self.field_group.clear();
+        self.tab_cfg.clear();
+        self.data_table.clear();
+        self.templete.clear();
+        self.menus.clear();
+
+        println!("读取字段配置");
         self.load_field_config()?;
+        println!("读取模板配置");
         self.load_templete()?;
+        println!("读取页签配置");
         self.load_tab_config()?;
-        self.load_data()?;
+        println!("读取菜单配置");
         self.load_menu_config()?;
+        println!("读取数据");
+        self.load_data()?;
         return Ok(());
     }
-
-    pub fn load_config(&mut self) {
-        if self.inited {return;}
+    
+    pub fn load_config(&mut self, force:bool) {
+        if self.inited && !force {return;}
+        self.inited = false;
         let ret = self._load_config();
         self.inited = true;
         match ret {
@@ -386,6 +414,7 @@ impl SkillEditorApp {
             egui::menu::bar(ui, |ui|{
                 egui::widgets::global_dark_light_mode_switch(ui);
                 if ui.button("保存").clicked(){ self.save_data();}
+                if ui.button("重新载入").clicked(){ self.load_config(true);}
                 if ui.button("控制台").clicked() {
                     if self.console_show {
                         utils::hide_console_window();
@@ -451,11 +480,11 @@ impl SkillEditorApp {
         let mut copy_master_val = String::new();
         let mut idx = 0;
         let mut click_table = String::new();
-        for key in &cfg.tabs {
+        for tab_info in &cfg.tabs {
             idx = idx + 1;
-            let show_table = self.data_table.get(key);
+            let show_table = self.data_table.get(&tab_info.tab);
             if show_table.is_none() {
-                let msg = format!("表格[{}]未找到", key);
+                let msg = format!("表格[{}]未找到", tab_info.tab);
                 SkillEditorApp::draw_empty_table(ctx, msg, width, idx);
                 continue;
             }
@@ -466,16 +495,16 @@ impl SkillEditorApp {
             }
 
             let mut cur_master_val = String::new();
-            let master_table = const_one.master_table.clone();
-            if !const_one.master_table.is_empty() {
-                let master_table = self.data_table.get(&const_one.master_table);
+            let master_table = tab_info.master_table.clone();
+            if !master_table.is_empty() {
+                let master_table = self.data_table.get(&master_table);
                 if master_table.is_some() {
                     let master_table = master_table.unwrap();
                     cur_master_val = master_table.get_cur_key();
                 }
             }
 
-            let data_table = self.data_table.get_mut(key).unwrap();
+            let data_table = self.data_table.get_mut(&tab_info.tab).unwrap();
             if !copy_table.is_empty() && master_table == copy_table {
                 println!("copytable master_table[{}] copy[{}] cur[{}]", master_table, copy_master_val, cur_master_val);
                 let copy_list = data_table.get_show_name_list(&data_table.master_field, &copy_master_val, false, &"".to_string());
@@ -494,7 +523,7 @@ impl SkillEditorApp {
                 show_all = Some(data_table.show_all);
                 show_all_bool = data_table.show_all;
             }
-            if !click_table.is_empty() && click_table == data_table.master_table {
+            if !click_table.is_empty() && click_table == tab_info.master_table {
                 data_table.update_cur_row(&cur_master_val);
             }
             let list = data_table.get_show_name_list(&data_table.master_field, &cur_master_val, show_all_bool, &data_table.search);
@@ -508,7 +537,7 @@ impl SkillEditorApp {
                 let field_info = self.field_group.get(&create_tmp);
                 if field_info.is_some() {
                     let field_info = field_info.unwrap();
-                    self.templete_target = key.clone();
+                    self.templete_target = tab_info.tab.clone();
                     self.templete_table = create_tmp;
                     self.templete_data = HashMap::new();
                     for field in field_info {
@@ -557,13 +586,13 @@ impl SkillEditorApp {
             if op == 5 {
                 copy_master_val = data_table.get_cur_key();
                 data_table.copy_cur_row(&cur_master_val);
-                copy_table = key.clone();
+                copy_table = tab_info.tab.clone();
             }
             let link_info = SkillEditorApp::draw_data(ctx, idx, data_table, width + width * 0.4);
             if link_info.is_some() {
                 let link_info = link_info.unwrap();
                 self.link_table = link_info.table;
-                self.link_src_table = key.clone();
+                self.link_src_table = tab_info.tab.clone();
                 self.link_src_field = link_info.field;
                 self.show_link = true;
                 println!("ShowLinkWindow src[{}] field[{}] link[{}]", self.link_src_table, self.link_src_field, self.link_table);
@@ -743,7 +772,7 @@ impl SkillEditorApp {
                         .min_col_width(size.x/2.0 - 64.0);
                     grid.show(ui, |ui|{
                         for (idx, one) in vec {
-                            let f = one.create_ui(&mut map, ui, select_field == idx - 1, search);
+                            let f = one.create_ui(&mut map, ui, select_field == idx - 1, search, 0);
                             if f {
                                 click_flag = true;
                                 click_idx = idx - 1;
@@ -874,18 +903,7 @@ impl SkillEditorApp {
             if field.is_some() {
                 if ui.button("创建").clicked() {
                     create = true;
-                    let data_table = self.data_table.get(&self.templete_target);
-                    if data_table.is_none() {return;}
-                    let data_table = data_table.unwrap();
-                    let mut cur_master_val = String::new();
-                    if !data_table.master_table.is_empty() {
-                        let master = data_table.master_table.clone();
-                        let master_table = self.data_table.get(&master);
-                        if master_table.is_some() {
-                            let master_table = master_table.unwrap();
-                            cur_master_val = master_table.get_cur_key();
-                        }
-                    }
+                    let cur_master_val = String::new();
                     let data_table = self.data_table.get_mut(&self.templete_target).unwrap();
                     data_table.create_row(&cur_master_val);
                     let idx = data_table.data.len() - 1;
@@ -949,7 +967,7 @@ impl Default for SkillEditorApp {
 
 impl eframe::App for SkillEditorApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        self.load_config();
+        self.load_config(false);
         self.draw_menu(ctx);
         self.draw_view(ctx);
         self.draw_link_window(ctx);

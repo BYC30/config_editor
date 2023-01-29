@@ -7,15 +7,13 @@ use serde_json::json;
 use walkdir::WalkDir;
 use xlsxwriter::{FormatAlignment, FormatColor, FormatBorder};
 
-use crate::{utils, error, data_field::{FieldInfo, EFieldType}, app::TempleteInfo};
+use crate::{utils, error, data_field::{FieldInfo, EFieldType}, app::TempleteInfo, saver::{self, DataSaver}};
 
 #[derive(Debug)]
 pub struct DataTable {
     pub table_name: String,
-    pub tab: String, 
     pub show_name: String,
     pub show_field: String,
-    pub master_table: String,
     pub master_field: String,
     pub group_key: String,
     pub export_sort: String,
@@ -39,15 +37,13 @@ pub struct DataTable {
 }
 
 impl DataTable {
-    pub fn new(table_name: String, tab: String, show_name:String, show_field:String, master_table:String, master_field:String, group_field:String, export_sort:String, output_type:Vec<String>, output_path:Vec<String>, info:Vec<FieldInfo>, templete:Vec<TempleteInfo>) -> DataTable{
+    pub fn new(table_name: String, show_name:String, show_field:String, master_field:String, group_field:String, export_sort:String, output_type:Vec<String>, output_path:Vec<String>, info:Vec<FieldInfo>, templete:Vec<TempleteInfo>) -> DataTable{
         let key_name = String::new();
         
         let ret = DataTable{
             table_name,
-            tab,
             show_name,
             show_field,
-            master_table,
             master_field,
             group_key: group_field,
             export_sort,
@@ -92,97 +88,24 @@ impl DataTable {
         }
     }
 
-    pub fn _save_csv(&self, path: PathBuf, out_type: &String) -> Result<()> {
-        let mut content = String::new();
-        // 表头
-        let mut header:Vec<Vec<String>> = vec![Vec::new(), Vec::new()];
-        for one in &self.info {
-            if !one.export {continue;}
-
-            if one.header.len() > 0 {
-                let mut idx = 0;
-                for h in &one.header {
-                    if header.len() < idx + 1 {
-                        header.push(Vec::new());
-                    }
-                    let line = header.get_mut(idx).unwrap();
-                    let mut s = h.clone();
-                    let f1 = h.contains(",") || h.contains("\r") || h.contains("\n")
-                        || h.contains("\'") || h.contains("\"");
-                    if f1 {s = format!("\"{}\"", s);}
-                    line.push(s);
-                    idx = idx + 1;
-                }
-
-                let mut field_name = one.name.clone();
-                let f2 = out_type == "scsv";
-                if f2 { field_name = format!("\"{}\"", field_name); }
-                let name_field = one.header.len();
-                if header.len() <= name_field {
-                    header.push(Vec::new());
-                }
-                let name_line = header.get_mut(name_field).unwrap();
-                name_line.push(field_name);
-            }else{
-                let mut field_type = one.origin.clone();
-                let mut field_name = one.name.clone();
-                let f1 = field_type.contains(",") || field_type.contains("\r") || field_type.contains("\n")
-                || field_type.contains("\'") || field_type.contains("\"");
-                let f2 = out_type == "scsv";
-                if f1 || f2 { field_type = format!("\"{}\"", field_type);}
-                if f2 { field_name = format!("\"{}\"", field_name); }
-                let type_line = header.get_mut(0).unwrap();
-                type_line.push(field_type);
-                let name_line = header.get_mut(1).unwrap();
-                name_line.push(field_name);
-            }
+    pub fn output(&self, path: PathBuf, out_type: &String) -> Result<()> {
+        let content = match out_type.as_str() {
+            "csv" => {saver::csv::CsvSaver::output(&self.info, &self.data, &self.key_name)?},
+            "scsv" => {saver::scsv::ScsvSaver::output(&self.info, &self.data, &self.key_name)?},
+            "json" => {saver::json::JsonSaver::output(&self.info, &self.data, &self.key_name)?},
+            _ => {bail!(error::AppError::ExportTypeError(out_type.clone()));}
+        };
+        let mut full_path = path.clone();
+        if full_path.is_dir() {
+            match out_type.as_str() {
+                "csv" | "scsv" => {full_path.push(format!("{}.csv", self.table_name));},
+                "json" => {full_path.push(format!("{}.json", self.table_name));},
+                _ => {bail!(error::AppError::ExportTypeError(out_type.clone()));}
+            };
         }
-        for one in header {
-            content.push_str(one.join(",").as_str());
-            content.push_str("\r\n");
-        }
-
-        // 内容
-        for row in self.data.iter().sorted_by_key(|a|{utils::map_get_i32(*a, &self.key_name)}) {
-            let mut one_line = Vec::new();
-            for one in &self.info {
-                if !one.export {continue;}
-                let v = match row.get(&one.name){
-                    Some(s) => {s.clone()},
-                    None => {String::new()},
-                };
-                
-                let mut tmp;
-                let mut flag = false;
-                if out_type == "scsv" {
-                    tmp = v.trim()
-                    .replace("'", "\\'")
-                    .replace("\"", "\"\"");
-                    flag = one.is_array || one.val_type == EFieldType::Str || one.val_type == EFieldType::Table;
-                    flag = flag && !tmp.is_empty();
-                }else {
-                    tmp = v.trim()
-                        .replace("'", "\\'")
-                        .replace("\"", "\\\"");
-                }
-                if tmp.contains(",") || tmp.contains("\r") || tmp.contains("\n")
-                    || tmp.contains("\'") || tmp.contains("\"") || flag {
-                    tmp = format!("\"{}\"", tmp);
-                }
-                if one.val_type == EFieldType::Bool {
-                    tmp = tmp.to_lowercase();
-                }
-                one_line.push(tmp);
-            }
-            content.push_str(one_line.join(",").as_str());
-            content.push_str("\r\n");
-        }
-
-        let mut p = path.clone();
-        p.pop();
-        if !p.exists() {
-            std::fs::create_dir_all(p.clone())?;
-        }
+        let mut dir = full_path.clone();
+        dir.pop();
+        if !dir.exists() { std::fs::create_dir_all(dir.clone())?; }
         fs::write(path, content)?;
         Ok(())
     }
@@ -330,7 +253,9 @@ impl DataTable {
     }
 
     pub fn delete_cur_row(&mut self) {
+        if self.cur_row < 0 || self.cur_row >= self.data.len() as i32 {return;}
         self.data.remove(self.cur_row as usize);
+        self.cur_row = -1;
     }
 
     pub fn copy_row(&mut self, idx: usize, master_val: &String) {

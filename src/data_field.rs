@@ -3,7 +3,7 @@ use anyhow::{Result, bail};
 use eframe::{egui, epaint::Color32};
 use serde::{Serialize, Deserialize};
 
-use crate::{error, app::{TEMPLETE_MAP, TempleteInfo}};
+use crate::{error, app::{TEMPLETE_MAP_EXPR, TEMPLETE_MAP_SUB_FIELD, TempleteInfo}, utils::{self, map2tablestr}};
 
 
 #[derive(Debug, PartialEq, Clone)]
@@ -26,6 +26,7 @@ pub enum EEditorType
     Blueprint,
     BitFlag,
     TempleteExpr,
+    SubField,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +45,7 @@ pub struct FieldInfo {
     pub editor_type: EEditorType,
     pub opt: Vec<EnumOption>,
     pub bit_name: Vec<String>,
+    pub sub_field_key: String,
     pub default: String,
     pub link_table: String,
     pub export: bool,
@@ -57,7 +59,7 @@ pub struct FieldInfo {
 
 
 impl FieldInfo {
-    pub fn parse(name:String, title:String, desc:String, group:String, field_type:String, editor_type:String, opt_str:String,default:String,link_table:String,export:bool, header:Vec<String>) -> Result<FieldInfo> {
+    pub fn parse(name:String, title:String, desc:String, group:String, field_type:String, editor_type:String, opt_str:Vec<String>,default:String,link_table:String,export:bool, header:Vec<String>) -> Result<FieldInfo> {
         let mut tmp = field_type.clone();
         let mut prefix = String::new();
         let arr:Vec<&str> = tmp.split("<").collect();
@@ -96,24 +98,30 @@ impl FieldInfo {
             "Blueprint" => EEditorType::Blueprint,
             "BitFlag" => EEditorType::BitFlag,
             "TempleteExpr" => EEditorType::TempleteExpr,
+            "SubField" => EEditorType::SubField,
             _ => {bail!(error::AppError::EditorTypeNotSupport(editor_type))}
         };
         let mut opt: Vec<EnumOption> = Vec::new();
         if editor_type == EEditorType::Enum {
-            let v: Vec<Vec<String>> = serde_json::from_str(opt_str.as_str())?;
-            for one in v {
+            for one in &opt_str {
+                let one:Vec<&str> = one.split(":").collect();
                 if one.len() >= 2 {
-                    let val = one.get(0).unwrap().clone();
-                    let show = one.get(1).unwrap().clone();
+                    let val = one.get(0).unwrap().clone().trim().to_string();
+                    let show = one.get(1).unwrap().clone().trim().to_string();
                     opt.push(EnumOption{show, val})
                 }
             }
         }
         let mut bit_name = Vec::new();
         if editor_type == EEditorType::BitFlag {
-            let v: Vec<String> = serde_json::from_str(opt_str.as_str())?;
-            for one in v {
-                bit_name.push(one);
+            for one in &opt_str {
+                bit_name.push(one.clone());
+            }
+        }
+        let mut sub_field_key = String::new();
+        if editor_type == EEditorType::SubField {
+            if opt_str.len() > 0 {
+                sub_field_key = opt_str[0].clone();
             }
         }
         return Ok(FieldInfo { 
@@ -133,6 +141,7 @@ impl FieldInfo {
             link_table,
             export,
             header,
+            sub_field_key,
         });
     }
 }
@@ -187,7 +196,7 @@ impl TempleteData {
 impl FieldInfo {
     fn draw_one_templete(&self, field:&Vec<FieldInfo>, mut map:&mut HashMap<String, String>, ui: &mut egui::Ui, idx:i32) -> bool {
         let mut draw_info:Vec<(String, Vec<(i32, FieldInfo)>)> = Vec::new();
-        let mut idx = 0;
+        let mut idx = idx * 10000;
         for one in field {
             idx = idx + 1;
             let group = one.group.clone();
@@ -214,7 +223,7 @@ impl FieldInfo {
             .min_col_width(size.x/2.0 - 64.0);
         grid.show(ui, |ui|{
             for one in field {
-                let f = one.create_ui(&mut map, ui, false, &String::new());
+                let f = one.create_ui(&mut map, ui, false, &String::new(), idx);
                 if f {
                     click_flag = true;
                 }
@@ -229,7 +238,7 @@ impl FieldInfo {
         let id1 = format!("detail_panel_{}_{}", self.name, idx);
         let id2 = format!("detail_desc_panel_{}_{}", self.name, idx);
 
-        let templete = TEMPLETE_MAP.lock().unwrap();
+        let templete = TEMPLETE_MAP_EXPR.lock().unwrap();
         let mut click = false;
         let mut ret = Vec::new();
         let mut list = Vec::new();
@@ -240,7 +249,7 @@ impl FieldInfo {
         }
         list.sort();
         if first.is_empty() {
-            let err_info = egui::RichText::new("无可用模板").color(Color32::RED);
+            let err_info = egui::RichText::new("无可用模板, 请配置模板功能页").color(Color32::YELLOW);
             ui.label(err_info);
             return (false, String::new());
         }
@@ -441,6 +450,32 @@ impl FieldInfo {
                         ret = v;
                     });
                 }
+                EEditorType::SubField => {
+                    let templete = TEMPLETE_MAP_SUB_FIELD.lock().unwrap();
+                    let info = templete.get(&self.sub_field_key);
+                    let mut v = val.clone();
+                    let data = utils::tablestr2map(&v);
+
+                    let mut msg = String::new();
+                    if data.is_err() { msg = format!("格式错误[{:?}]", data); }
+                    if info.is_none() { msg = format!("未找到模板[{}]", self.sub_field_key); }
+
+                    if !msg.is_empty() {
+                        let txt = egui::TextEdit::multiline(&mut v).desired_width(f32::INFINITY);
+                        ui.add(txt);
+                        let err_info = egui::RichText::new(msg).color(Color32::RED);
+                        ui.label(err_info);
+                    }
+                    else{
+                        let mut data = data.unwrap();
+                        let info = info.unwrap();
+                        self.draw_one_templete(&info.field, &mut data, ui, idx);
+                        let ret = map2tablestr(&data);
+                        if ret.is_ok() { v = ret.unwrap(); }
+                    }
+                    
+                    ret = v;
+                }
                 EEditorType::Enum => {
                     let mut v = val.clone();
                     let mut txt = String::new();
@@ -454,9 +489,10 @@ impl FieldInfo {
                     if !found {txt = format!("[{}]未定义选项", v);}
                     let mut label = egui::RichText::new(txt);
                     if !found {label = label.color(Color32::RED);}
-
+                    let size = ui.available_size();
                     let id = format!("{}_{}_combobox", self.name, idx);
                     egui::ComboBox::from_id_source(id)
+                    .width(size.x * 0.95)
                     .selected_text(label)
                     .show_ui(ui, |ui| {
                         for one in &self.opt {
@@ -535,7 +571,7 @@ impl FieldInfo {
         return (ret, msg)
     }
 
-    pub fn create_ui(&self, map: &mut HashMap<String, String>, ui: &mut egui::Ui, selected: bool, search:&String) -> bool {
+    pub fn create_ui(&self, map: &mut HashMap<String, String>, ui: &mut egui::Ui, selected: bool, search:&String, start:i32) -> bool {
         let mut flag = false;
         let val = map.get(&self.name);
         let v = match val {
@@ -570,7 +606,7 @@ impl FieldInfo {
                         arr.pop();
                     }
                 });
-                let mut idx = 0;
+                let mut idx = start;
                 for one in arr {
                     idx = idx + 1;
                     let s = one.to_string();

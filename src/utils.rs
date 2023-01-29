@@ -2,6 +2,7 @@ use std::{path::PathBuf, collections::HashMap};
 
 use anyhow::Result;
 use calamine::{open_workbook_auto, Reader, DataType, Range};
+use mlua::LuaSerdeExt;
 
 use super::error;
 
@@ -69,6 +70,23 @@ pub fn map_contains_str(map:&HashMap<String, String>, search:&String) -> bool {
         if v.contains(search) {return true;}
     }
     return false;
+}
+
+pub fn tablestr2map(table:&String) -> Result<HashMap<String, String>>{
+    let lua = mlua::Lua::new();
+    let table: mlua::Table = lua.load(table).eval()?;
+    let json = serde_json::to_string(&table)?;
+    let map: HashMap<String, String> = serde_json::from_str(&json)?;
+    return Ok(map);
+}
+
+pub fn map2tablestr(map:&HashMap<String, String>) -> Result<String> {
+    let mut ret = Vec::new();
+    for (k, v) in map {
+        ret.push(format!("{}=\"{}\"", k, v.as_str()));
+    }
+    let s = format!("{{{}}}", ret.join(", "));
+    return Ok(s);
 }
 
 pub fn translate_key(key: &str) -> Option<eframe::egui::Key> {

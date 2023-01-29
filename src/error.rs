@@ -27,4 +27,6 @@ pub enum AppError {
     UEFileNameNotFound(String),
     #[error("{0}")]
     HintMsg(String),
+    #[error("导出格式[{0}]不支持")]
+    ExportTypeError(String),
 }
