@@ -1,0 +1,67 @@
+[
+  {
+    "__Group__": "编辑器",
+    "__SubGroup__": "编辑器配置",
+    "export_sort": "",
+    "group_field": "",
+    "master_field": "table_key",
+    "output_path": "./config/field.json",
+    "output_type": "json",
+    "show_field": "title",
+    "show_name": "字段",
+    "sort": "101",
+    "table_key": "editor_field"
+  },
+  {
+    "__Group__": "编辑器",
+    "__SubGroup__": "编辑器配置",
+    "export_sort": "",
+    "group_field": "",
+    "master_field": "",
+    "output_path": "./config/table.json",
+    "output_type": "json",
+    "show_field": "show_name",
+    "show_name": "表格",
+    "sort": "100",
+    "table_key": "editor_table"
+  },
+  {
+    "__Group__": "编辑器",
+    "__SubGroup__": "编辑器配置",
+    "export_sort": "",
+    "group_field": "",
+    "master_field": "",
+    "output_path": "./config/tab.json",
+    "output_type": "json",
+    "show_field": "title",
+    "show_name": "页签",
+    "sort": "100",
+    "table_key": "editor_tab"
+  },
+  {
+    "__Group__": "编辑器",
+    "__SubGroup__": "编辑器配置",
+    "export_sort": "",
+    "group_field": "",
+    "master_field": "",
+    "output_path": "./config/templete.json",
+    "output_type": "json",
+    "show_field": "title",
+    "show_name": "模板",
+    "sort": "100",
+    "table_key": "editor_templete"
+  },
+  {
+    "__Group__": "编辑器",
+    "__SubGroup__": "编辑器配置",
+    "export_sort": "",
+    "group_field": "",
+    "master_field": "",
+    "output_path": "./config/menu.json",
+    "output_type": "json",
+    "show_field": "name",
+    "show_name": "菜单",
+    "sort": "100",
+    "table_key": "editor_menu"
+  }
+]

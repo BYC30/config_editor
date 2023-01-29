@@ -1,0 +1,10 @@
+[
+  {
+    "content": {},
+    "expr": "",
+    "table": "master_info",
+    "table_key": "templete",
+    "templete_type": "SubField",
+    "title": "主从关系"
+  }
+]

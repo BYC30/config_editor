@@ -1,0 +1,15 @@
+[
+  {
+    "ID": "1",
+    "ShowName": "",
+    "__Group__": "默认分组",
+    "__SubGroup__": "默认子分组",
+    "auto_target": "false",
+    "expr": "--[{\"id\":\"t_add_buff\",\"expr\":\"\",\"data\":{\"tar\":\"target\",\"buff_id\":\"1\",\"src\":\"cre\"}}]\r\nAddBuff(\"cre\", \"target\", 1)",
+    "file": "",
+    "file_bp": "",
+    "icon": "",
+    "status": "0",
+    "target_type": "1"
+  }
+]
