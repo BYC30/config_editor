@@ -15,8 +15,6 @@ pub enum AppError {
     EditorTypeNotSupport (String),
     #[error("未知错误[{0}]")]
     Other(#[from] anyhow::Error),
-    #[error("配置表页签[{0}]格式错误")]
-    ConfigFormatError(String),
     #[error("导入表格key[{0}]未找到")]
     ImportExcelKeyNotFound(String),
     #[error("文件路径[{0}]未包含Content目录")]

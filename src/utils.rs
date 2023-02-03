@@ -2,7 +2,6 @@ use std::{path::PathBuf, collections::HashMap};
 
 use anyhow::Result;
 use calamine::{open_workbook_auto, Reader, DataType, Range};
-use mlua::LuaSerdeExt;
 
 use super::error;
 

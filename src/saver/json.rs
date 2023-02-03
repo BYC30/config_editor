@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use itertools::Itertools;
 use serde_json::json;
-use crate::{data_field::{FieldInfo, EFieldType}, utils::{self, tablestr2map}};
+use crate::{data_field::{FieldInfo, EFieldType}, utils};
 
 use super::DataSaver;
 

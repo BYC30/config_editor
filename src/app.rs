@@ -1,9 +1,9 @@
-use std::{collections::{HashMap, HashSet}, fmt::format, process::Command, arch::x86_64::_MM_FROUND_CUR_DIRECTION, path::PathBuf, sync::Mutex};
-use eframe::{egui::{self, Ui, RichText, output}, App, epaint::Color32, glow::GEOMETRY_OUTPUT_TYPE};
+use std::{collections::HashMap, process::Command, sync::Mutex};
+use eframe::{egui::{self, RichText}, epaint::Color32};
 use anyhow::{Result, bail};
 use itertools::Itertools;
 use serde::{Serialize, Deserialize};
-use crate::{utils, error, data_table::{DataTable, self}, data_field::{FieldInfo}};
+use crate::{utils, error, data_table::DataTable, data_field::FieldInfo};
 
 lazy_static! {
     pub static ref TEMPLETE_MAP_EXPR: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
@@ -300,7 +300,7 @@ impl SkillEditorApp {
     }
 
     fn load_data(&mut self) -> Result<()> {
-        for (k, v) in &mut self.data_table {
+        for (_k, v) in &mut self.data_table {
             v.load_data();
         }
         return Ok(());
@@ -720,7 +720,6 @@ impl SkillEditorApp {
     }
 
     pub fn _draw_data(ui: &mut egui::Ui, idx:String, field: &Vec<FieldInfo>, mut map: &mut HashMap<String, String>, select_field:i32, search:& String) -> Option<i32> {
-        let id1 = format!("detail_panel_{}", idx);
         let id2 = format!("detail_desc_panel_{}", idx);
         let mut ret = None;
         let select = field.get(select_field as usize);
@@ -966,7 +965,7 @@ impl Default for SkillEditorApp {
 }
 
 impl eframe::App for SkillEditorApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.load_config(false);
         self.draw_menu(ctx);
         self.draw_view(ctx);

@@ -1,13 +1,12 @@
 use std::{collections::{HashMap, HashSet}, path::PathBuf, fs};
 use anyhow::{Result, bail};
 use calamine::{open_workbook_auto, Reader};
-use eframe::{egui::{self, collapsing_header::HeaderResponse}, epaint::Color32};
 use itertools::Itertools;
 use serde_json::json;
 use walkdir::WalkDir;
 use xlsxwriter::{FormatAlignment, FormatColor, FormatBorder};
 
-use crate::{utils, error, data_field::{FieldInfo, EFieldType}, app::TempleteInfo, saver::{self, DataSaver}};
+use crate::{utils, error, data_field::FieldInfo, app::TempleteInfo, saver::{self, DataSaver}};
 
 #[derive(Debug)]
 pub struct DataTable {
@@ -138,7 +137,7 @@ impl DataTable {
             for (sub_group, two) in one.iter().sorted_by_key(|a|{a.0}) {
                 let mut js = json!([]);
                 let arr = js.as_array_mut().unwrap();
-                for (_name, idx, _key_num, dup) in two {
+                for (_name, idx, _key_num, _dup) in two {
                     let mut obj = json!({});
                     let obj_map = obj.as_object_mut().unwrap();
                     let row = self.data.get(*idx as usize).unwrap();
@@ -306,7 +305,7 @@ impl DataTable {
             let key = utils::map_get_string(&one, &self.key_name, "");
             idx = idx + 1;
             if name.is_none() {continue;}
-            let mut name = name.unwrap();
+            let name = name.unwrap();
             if !master_key.is_empty() && !show_all {
                 let rel_id = one.get(master_key);
                 if rel_id.is_none() {continue;}
@@ -327,7 +326,7 @@ impl DataTable {
             }
             let layer2 = layer1.get_mut(&sub_group).unwrap();
             let cnt = *key_cnt.get(&key).unwrap();
-            let mut dup = cnt > 1;
+            let dup = cnt > 1;
             // for field in &self.info {
             //     let val = utils::map_get_string(one, &field.name, &String::new());
             //     let (err, _) = field.check_data(&val);

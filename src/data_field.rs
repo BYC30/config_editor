@@ -235,9 +235,6 @@ impl FieldInfo {
     }
 
     fn draw_templete(&self, data:&mut Vec<TempleteData>, ui: &mut egui::Ui, idx:i32) -> (bool, String){
-        let id1 = format!("detail_panel_{}_{}", self.name, idx);
-        let id2 = format!("detail_desc_panel_{}_{}", self.name, idx);
-
         let templete = TEMPLETE_MAP_EXPR.lock().unwrap();
         let mut click = false;
         let mut ret = Vec::new();
