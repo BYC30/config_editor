@@ -7,6 +7,7 @@ mod error;
 mod utils;
 mod app;
 mod data_field;
+mod saver;
 
 use app::SkillEditorApp;
 
