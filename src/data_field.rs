@@ -185,12 +185,6 @@ impl TempleteData {
         }
         return expr;
     }
-
-    fn get_output(&self, info: &TempleteInfo) -> String {
-        let data = serde_json::to_string(self).unwrap();
-        let expr = self.get_expr(info);
-        return format!("-- {}\r\n{}", data, expr);
-    }
 }
 
 impl FieldInfo {
