@@ -172,7 +172,6 @@ fn uasset2str(path: PathBuf, is_bp: bool) -> Result<String> {
 #[derive(Serialize, Deserialize)]
 struct TempleteData{
     id: String,
-    expr: String,
     data: HashMap<String, String>,
 }
 
@@ -356,7 +355,7 @@ impl FieldInfo {
                             let mut data:Vec<TempleteData> = serde_json::from_str(json).unwrap();
                             ui.horizontal(|ui|{
                                 if ui.button("+").clicked() {
-                                    data.push(TempleteData { id: String::new(), expr: String::new(), data: HashMap::new() });
+                                    data.push(TempleteData { id: String::new(), data: HashMap::new() });
                                 }
                                 if ui.button("-").clicked() {
                                     data.pop();
