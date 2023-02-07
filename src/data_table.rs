@@ -105,7 +105,7 @@ impl DataTable {
         let mut dir = full_path.clone();
         dir.pop();
         if !dir.exists() { std::fs::create_dir_all(dir.clone())?; }
-        fs::write(path, content)?;
+        fs::write(full_path, content)?;
         Ok(())
     }
 
