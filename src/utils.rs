@@ -1,9 +1,7 @@
-use std::{path::PathBuf, collections::HashMap};
+use std::collections::HashMap;
 
 use anyhow::Result;
-use calamine::{open_workbook_auto, Reader, DataType, Range};
-
-use super::error;
+use calamine::{DataType, Range};
 
 pub fn get_cell(range: &Range<DataType>, x: u32, y: u32) -> String {
     let one = range.get_value((x, y));
