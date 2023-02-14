@@ -323,17 +323,26 @@ impl FieldInfo {
                 },
                 EEditorType::Text => {
                     let mut v = val.clone();
+                    
                     let txt = if self.val_type == EFieldType::Number {
                         egui::TextEdit::singleline(&mut v).desired_width(f32::INFINITY)
-                    }else{
+                    }
+                    else{
                         egui::TextEdit::multiline(&mut v)
                             .desired_width(f32::INFINITY)
                             .desired_rows(1)
                     };
 
-                    if ui.add(txt).gained_focus(){
-                        flag = true;
+                    if self.val_type == EFieldType::Expr {
+                        if crate::syntax_highlight::code_view_ui(ui, &mut v, "lua") {
+                            flag = true;
+                        }
+                    }else{
+                        if ui.add(txt).gained_focus(){
+                            flag = true;
+                        }
                     }
+
                     ret = v;
                 },
                 EEditorType::TempleteExpr => {

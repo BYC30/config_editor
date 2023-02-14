@@ -2,8 +2,7 @@
 use eframe::egui;
 use egui::text::LayoutJob;
 
-/// View some code with syntax highlighting and selection.
-pub fn code_view_ui(ui: &mut egui::Ui, code: &mut String, language: &str) {
+pub fn code_view_ui(ui: &mut egui::Ui, code: & mut String, language: &str) -> bool {
     let theme = CodeTheme::from_memory(ui.ctx());
 
     let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
@@ -12,15 +11,15 @@ pub fn code_view_ui(ui: &mut egui::Ui, code: &mut String, language: &str) {
         ui.fonts(|f| f.layout_job(layout_job))
     };
 
-    ui.add(
-        egui::TextEdit::multiline(code)
-            .font(egui::TextStyle::Monospace) // for cursor height
-            .code_editor()
-            .desired_rows(1)
-            .lock_focus(true)
-            .layouter(&mut layouter),
-    );
+    let txt = egui::TextEdit::multiline(code)
+        .font(egui::TextStyle::Monospace) // for cursor height
+        .code_editor()
+        .desired_rows(1)
+        .lock_focus(true)
+        .layouter(&mut layouter);
+    ui.add(txt).gained_focus()
 }
+
 
 /// Memoized Code highlighting
 pub fn highlight(ctx: &egui::Context, theme: &CodeTheme, code: &str, language: &str) -> LayoutJob {
