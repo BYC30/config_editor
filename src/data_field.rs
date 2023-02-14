@@ -323,11 +323,12 @@ impl FieldInfo {
                 },
                 EEditorType::Text => {
                     let mut v = val.clone();
-                    
                     let txt = if self.val_type == EFieldType::Number {
                         egui::TextEdit::singleline(&mut v).desired_width(f32::INFINITY)
                     }else{
-                        egui::TextEdit::multiline(&mut v).desired_width(f32::INFINITY)
+                        egui::TextEdit::multiline(&mut v)
+                            .desired_width(f32::INFINITY)
+                            .desired_rows(1)
                     };
 
                     if ui.add(txt).gained_focus(){
@@ -541,6 +542,7 @@ impl FieldInfo {
         return (ret, msg)
     }
 
+    #[allow(dead_code)]
     pub fn check_data(&self, val:&String) -> (bool, String){
         let mut ret = false;
         let mut msg = String::new();

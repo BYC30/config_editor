@@ -47,11 +47,11 @@ struct MenuInfo{
 
 impl MenuInfo {
     fn check_hotkey(&self, ui: &egui::Ui) {
-        if !ui.input().modifiers.ctrl {return;}
+        if !ui.input(|i|i.modifiers.ctrl) {return;}
         let hk = &self.hotkey;
         if hk.is_none() {return;}
         let hk = hk.unwrap();
-        if !ui.input().key_pressed(hk.clone()) {return;}
+        if !ui.input(|i|i.key_pressed(hk.clone())) {return;}
         self.trigger();
     }
 
@@ -423,7 +423,8 @@ impl SkillEditorApp {
                     }
                     self.console_show = !self.console_show;
                 }
-                if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
+                if ui.input(|i|i.key_pressed(egui::Key::S) && i.modifiers.ctrl) {
+                // if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
                     self.save_data();
                 }
                 let mut list: Vec<(String, Vec<MenuInfo>)> = Vec::new();
@@ -473,8 +474,8 @@ impl SkillEditorApp {
         if cfg.is_none() {return;}
         let cfg = cfg.unwrap();
         let size = ctx.used_size();
-        let unit = cfg.tabs.len() as f32 * 2.0;
-        let width = size.x / unit - unit * 4.0;
+        let unit = cfg.tabs.len() as f32;
+        let width = size.x / unit;
 
         let mut copy_table = String::new();
         let mut copy_master_val = String::new();
@@ -527,7 +528,7 @@ impl SkillEditorApp {
                 data_table.update_cur_row(&cur_master_val);
             }
             let list = data_table.get_show_name_list(&data_table.master_field, &cur_master_val, show_all_bool, &data_table.search);
-            let (click, op, create_tmp) = SkillEditorApp::draw_list(ctx, idx, width - width * 0.4, &data_table.show_name, &list, data_table.cur_row, &mut data_table.search, &mut show_all, &data_table.templete, &mut data_table.templete_idx);
+            let (click, op, create_tmp) = SkillEditorApp::draw_list(ctx, idx, width * 0.4, &data_table.show_name, &list, data_table.cur_row, &mut data_table.search, &mut show_all, &data_table.templete, &mut data_table.templete_idx);
             if show_all.is_some() { data_table.show_all = show_all.unwrap(); }
             if click.is_some() {
                 data_table.cur_row = click.unwrap().clone();
@@ -588,7 +589,7 @@ impl SkillEditorApp {
                 data_table.copy_cur_row(&cur_master_val);
                 copy_table = tab_info.tab.clone();
             }
-            let link_info = SkillEditorApp::draw_data(ctx, idx, data_table, width + width * 0.4);
+            let link_info = SkillEditorApp::draw_data(ctx, idx, data_table, width * 0.6);
             if link_info.is_some() {
                 let link_info = link_info.unwrap();
                 self.link_table = link_info.table;
