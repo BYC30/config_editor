@@ -18,6 +18,7 @@ struct TabInfo{
 
 #[derive(Debug)]
 struct TabConfig {
+    group: String,
     name: String,
     tabs: Vec<TabInfo>,
 }
@@ -96,6 +97,7 @@ pub struct SkillEditorApp {
 
     // UI 相关数据
     cur_view: usize,
+    cur_view_group: String,
     show_templete: bool,
     templete_target: String,
     templete_table: String,
@@ -250,6 +252,7 @@ impl SkillEditorApp {
 
         #[derive(Serialize, Deserialize)]
         struct TabCfg {
+            group: String,
             title: String,
             tabs: Vec<TabInfo>,
         }
@@ -261,8 +264,14 @@ impl SkillEditorApp {
         path.push("tab.json");
         let s = std::fs::read_to_string(path.clone())?;
         let data: Vec<TabCfg> = serde_json::from_str(&s)?;
+        let mut first = true;
         for one in data {
+            if first {
+                first = false;
+                self.cur_view_group = one.group.clone();
+            }
             self.tab_cfg.push(TabConfig{
+                group: one.group,
                 name:one.title,
                 tabs:one.tabs
             });
@@ -457,13 +466,42 @@ impl SkillEditorApp {
             });
         });
         egui::TopBottomPanel::top("tables").show(ctx, |ui|{
+            let mut idx = 0;
+
+            let mut group_list:Vec<(String, Vec<(usize, String)>)> = Vec::new();
+            for one in &self.tab_cfg {
+                let mut found = false;
+                for (group, list) in &mut group_list {
+                    if one.group == *group {
+                        list.push((idx, one.name.clone()));
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    group_list.push((one.group.clone(), vec![(idx, one.name.clone())]));
+                }
+                idx = idx + 1;
+            }
+            let mut cur_group_list = Vec::new();
             egui::menu::bar(ui, |ui|{
-                let mut idx = 0;
-                for one in &self.tab_cfg {
-                    if ui.selectable_label(idx == self.cur_view, &one.name).clicked() {
+                ui.label("页签分组:");
+                for (group, list) in group_list{
+                    if group == self.cur_view_group {
+                        cur_group_list = list;
+                    }
+                    if ui.selectable_label(group == self.cur_view_group, &group).clicked() {
+                        self.cur_view_group = group;
+                    }
+                }
+            });
+
+            egui::menu::bar(ui, |ui|{
+                ui.label("页签列表:");
+                for (idx, name) in cur_group_list {
+                    if ui.selectable_label(idx == self.cur_view, &name).clicked() {
                         self.cur_view = idx;
                     }
-                    idx = idx + 1;
                 }
             });
         });
@@ -475,7 +513,7 @@ impl SkillEditorApp {
         let cfg = cfg.unwrap();
         let size = ctx.used_size();
         let unit = cfg.tabs.len() as f32;
-        let width = size.x / unit;
+        let width = (size.x - unit * 8.0) / unit;
 
         let mut copy_table = String::new();
         let mut copy_master_val = String::new();
@@ -948,6 +986,7 @@ impl Default for SkillEditorApp {
             tab_cfg: Vec::new(),
             data_table: HashMap::new(),
             cur_view: 0,
+            cur_view_group: String::new(),
             show_templete: false,
             templete: HashMap::new(),
             templete_target: String::new(),
