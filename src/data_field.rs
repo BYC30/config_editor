@@ -3,7 +3,7 @@ use anyhow::{Result, bail};
 use eframe::{egui, epaint::Color32};
 use serde::{Serialize, Deserialize};
 
-use crate::{error, app::{TEMPLETE_MAP_EXPR, TEMPLETE_MAP_SUB_FIELD, TempleteInfo}, utils::{self, map2tablestr}};
+use crate::{error, app::{TEMPLETE_MAP_EXPR, TEMPLETE_MAP_SUB_FIELD, TempleteInfo}, utils::{self, map2tablestr}, syntax_highlight::show_code_view_ui};
 
 
 #[derive(Debug, PartialEq, Clone)]
@@ -280,7 +280,8 @@ impl FieldInfo {
             let id = format!("{}_{}_{}_CollapsingHeader", self.name, idx, child_idx);
             let expr = one.get_expr(info);
 
-            ui.label(expr);
+            show_code_view_ui(ui, expr.as_str(), "lua");
+            // ui.label(expr);
             egui::CollapsingHeader::new(info.title.clone())
                 .id_source(id).show(ui, |ui|{
                     if self.draw_one_templete(&info.field, &mut one.data, ui, idx){
