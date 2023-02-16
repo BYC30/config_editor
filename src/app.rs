@@ -137,34 +137,18 @@ impl SkillEditorApp {
         Self::default()
     }
 
-    pub fn _save_data(&self) -> Result<()> {
-        let mut path = std::env::current_exe()?;
-        path.pop();
-
-        for (_, data_table) in &self.data_table {
-            let mut idx = 0;
-            for output_type in &data_table.output_type {
-                if data_table.output_path.len() > idx {
-                    let mut p = path.clone();
-                    let path = data_table.output_path.get(idx).unwrap();
-                    p.push(path.clone());
-                    data_table.output(p, output_type)?;
-                }
-                idx = idx + 1;
-            }
-            let p = data_table.get_save_json()?;
-            data_table._save_json(p)?;
-        }
-
-        Ok(())
-    }
-
     pub fn save_data(&mut self){
-        let ret = self._save_data();
-        match ret {
-            Ok(_) => {self.msg("导出成功".to_string(), "导出成功".to_string())},
-            Err(e) => {self.msg(format!("导出失败:{:?}", e), "导出失败".to_string())},
+        let mut info = Vec::new();
+        for (_, data_table) in &self.data_table {
+            let result = data_table.save_json();
+            let msg = match result {
+                Ok(_) => {"成功".to_string()},
+                Err(e) => {e.to_string()},
+            };
+            info.push(format!("[{}]{}", data_table.table_name, msg));
         }
+        
+        utils::msg(info.join("\n"), "导出完毕".to_string());
     }
 
     fn load_menu_config(&mut self) -> Result<()> {
@@ -401,7 +385,7 @@ impl SkillEditorApp {
         match ret {
             Ok(_) => {},
             Err(e) => {
-                self.msg(format!("读取配置失败:{:?}", e), "错误".to_string())
+                utils::msg(format!("读取配置失败:{:?}", e), "错误".to_string())
             },
         }
     }
@@ -409,15 +393,6 @@ impl SkillEditorApp {
 
 // UI 相关接口
 impl SkillEditorApp {
-    fn msg(&self, content:String, title:String){
-        println!("MsgBox: {}", content);
-        rfd::MessageDialog::new()
-            .set_title(title.as_str())
-            .set_description(content.as_str())
-            .set_buttons(rfd::MessageButtons::Ok)
-            .show();
-    }
-
     fn draw_menu(&mut self, ctx: &egui::Context){
         egui::TopBottomPanel::top("menu").show(ctx, |ui|{
             egui::menu::bar(ui, |ui|{
