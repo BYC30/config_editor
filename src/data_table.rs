@@ -118,7 +118,25 @@ impl DataTable {
     }
 
 
-    pub fn _save_json(&self, path: PathBuf) -> Result<()> {
+    pub fn save_json(&self) -> Result<()> {
+        let mut path = std::env::current_exe()?;
+        path.pop();
+
+        let mut idx = 0;
+        for output_type in &self.output_type {
+            if self.output_path.len() > idx {
+                let mut p = path.clone();
+                let path = self.output_path.get(idx).unwrap();
+                p.push(path.clone());
+                self.output(p, output_type)?;
+            }
+            idx = idx + 1;
+        }
+        let p = self.get_save_json()?;
+        return self._save_json(p);
+    }
+
+    fn _save_json(&self, path: PathBuf) -> Result<()> {
         println!("_save_json {:?}", path);
         if !path.exists() {
             std::fs::create_dir_all(path.clone())?;
