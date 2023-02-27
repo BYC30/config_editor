@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = "0.21.0"
+eframe = {version = "0.21.0", features = ["persistence"] }
 syntect = "5.0.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -23,3 +23,5 @@ mlua = { version = "0.8", features = ["lua54", "vendored", "serialize"] }
 dunce = "1.0.3"
 winapi = {version = "0.3", features = ["wincon", "winuser"]}
 lazy_static = "1.4.0"
+
+catppuccin-egui = "2.0.0"

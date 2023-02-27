@@ -1,5 +1,5 @@
 use std::{collections::HashMap, process::Command, sync::Mutex};
-use eframe::{egui::{self, RichText, TextStyle}, epaint::Color32};
+use eframe::{egui::{self, RichText}, epaint::Color32};
 use anyhow::{Result, bail};
 use itertools::Itertools;
 use serde::{Serialize, Deserialize};
@@ -85,6 +85,94 @@ impl MenuInfo {
 
 }
 
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct AppCfg{
+    show: bool,
+    show_setting: bool,
+    base_theme: i32,
+}
+
+impl Default for AppCfg {
+    fn default() -> Self {
+        Self {
+            show: false,
+            show_setting: false,
+            base_theme: 0,
+        }
+    }
+}
+
+impl AppCfg {
+    pub fn show(&mut self){
+        self.show = true;
+    }
+
+    pub fn ui(&mut self, ctx: &egui::Context) {
+        let old = self.clone();
+        egui::Window::new("🔧应用配置")
+            .open(&mut self.show)
+            .resizable(true)
+            .default_width(320.0)
+            .show(ctx, |ui| {
+                egui::Grid::new("my_grid")
+                    .num_columns(2)
+                    .spacing([40.0, 4.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("应用设置");
+                        if ui.button("打开设置").clicked() {
+                            self.show_setting = true;
+                        }
+                        ui.end_row();
+
+
+                        ui.add(egui::Label::new("样式"));
+                        ui.horizontal(|ui| {
+                            ui.radio_value(&mut self.base_theme, 0, "Dark");
+                            ui.radio_value(&mut self.base_theme, 1, "FRAPPE");
+                            ui.radio_value(&mut self.base_theme, 2, "MACCHIATO");
+                            ui.radio_value(&mut self.base_theme, 3, "MOCHA");
+                        });
+                        ui.end_row();
+                    });
+            });
+
+        egui::Window::new("🔧 Settings")
+            .open(&mut self.show_setting)
+            .vscroll(true)
+            .show(ctx, |ui| {
+                ctx.settings_ui(ui);
+            });
+        if old == *self { return; }
+        self.update_cfg(ctx);
+    }
+
+    fn update_theme(idx: i32, ctx: &egui::Context) {
+        let theme = match idx {
+            0 => {
+                let mut visual = egui::Visuals::dark();
+                visual.panel_fill = Color32::from_rgb(30, 30, 30);
+                visual.faint_bg_color = Color32::from_rgb(40, 40, 40);
+                visual.collapsing_header_frame = true;
+                visual.slider_trailing_fill = true;
+                ctx.set_visuals(visual);
+                return;
+            },
+            1 => {catppuccin_egui::FRAPPE},
+            2 => {catppuccin_egui::MACCHIATO},
+            3 => {catppuccin_egui::MOCHA},
+            _ => {catppuccin_egui::MOCHA}
+        };
+
+        catppuccin_egui::set_theme(&ctx, theme);
+    }
+
+    pub fn update_cfg(&self, ctx: &egui::Context){
+        AppCfg::update_theme(self.base_theme, ctx);
+    }
+}
+
 #[derive(Debug)]
 pub struct SkillEditorApp {
     inited: bool,
@@ -110,6 +198,8 @@ pub struct SkillEditorApp {
     link_src_field: String,
 
     console_show: bool,
+
+    cfg: AppCfg,
 }
 
 impl SkillEditorApp {
@@ -130,26 +220,25 @@ impl SkillEditorApp {
             .or_default()
             .push("my_font".to_owned());
         
-        
-        
-        let mut style: egui::Style = (*cc.egui_ctx.style()).clone();
-        let item = style.text_styles.get_mut(&TextStyle::Button);
-        if item.is_some(){
-            let item = item.unwrap();
-            item.size = 20.0;
-        }
-        cc.egui_ctx.set_style(style);
         cc.egui_ctx.set_fonts(fonts);
         let mut visual = egui::Visuals::dark();
         visual.panel_fill = Color32::from_rgb(30, 30, 30);
-        visual.faint_bg_color = Color32::from_rgb(37, 37, 37);
+        visual.faint_bg_color = Color32::from_rgb(40, 40, 40);
         visual.collapsing_header_frame = true;
         visual.slider_trailing_fill = true;
         cc.egui_ctx.set_visuals(visual);
 
         utils::hide_console_window();
 
-        Self::default()
+        let mut ret = Self::default();
+
+        if let Some(storage) = cc.storage {
+            if let Some(cfg) = eframe::get_value(storage, eframe::APP_KEY) {
+                ret.cfg = cfg;
+                ret.cfg.update_cfg(&cc.egui_ctx);
+            }
+        }
+        return ret;
     }
 
     pub fn save_data(&mut self){
@@ -413,6 +502,7 @@ impl SkillEditorApp {
             egui::menu::bar(ui, |ui|{
                 if ui.button("💾保存").clicked(){ self.save_data();}
                 if ui.button("🔃重新载入").clicked(){ self.load_config(true);}
+                if ui.button("🔧应用配置").clicked(){ self.cfg.show();}
                 if ui.button("🖥控制台").clicked() {
                     if self.console_show {
                         utils::hide_console_window();
@@ -500,9 +590,9 @@ impl SkillEditorApp {
         let cfg = self.tab_cfg.get(self.cur_view);
         if cfg.is_none() {return;}
         let cfg = cfg.unwrap();
-        let size = ctx.used_size();
+        let size = ctx.available_rect().max;
         let unit = cfg.tabs.len() as f32;
-        let width = (size.x - unit * 8.0) / unit;
+        let width = (size.x - unit * 8.0 * 4.0) / unit; // 一个配置包含两个面板, 4条边
 
         let mut copy_table = String::new();
         let mut copy_master_val = String::new();
@@ -555,7 +645,7 @@ impl SkillEditorApp {
                 data_table.update_cur_row(&cur_master_val);
             }
             let list = data_table.get_show_name_list(&data_table.master_field, &cur_master_val, show_all_bool, &data_table.search);
-            let (click, op, create_tmp) = SkillEditorApp::draw_list(ctx, idx, width * 0.4, &data_table.show_name, &list, data_table.cur_row, &mut data_table.search, &mut show_all, &data_table.templete, &mut data_table.templete_idx);
+            let (click, op, create_tmp) = SkillEditorApp::draw_list(ctx, idx, width * 0.35, &data_table.show_name, &list, data_table.cur_row, &mut data_table.search, &mut show_all, &data_table.templete, &mut data_table.templete_idx);
             if show_all.is_some() { data_table.show_all = show_all.unwrap(); }
             if click.is_some() {
                 data_table.cur_row = click.unwrap().clone();
@@ -616,7 +706,7 @@ impl SkillEditorApp {
                 data_table.copy_cur_row(&cur_master_val);
                 copy_table = tab_info.tab.clone();
             }
-            let link_info = SkillEditorApp::draw_data(ctx, idx, data_table, width * 0.6);
+            let link_info = SkillEditorApp::draw_data(ctx, idx, data_table, width * (1.0 - 0.35));
             if link_info.is_some() {
                 let link_info = link_info.unwrap();
                 self.link_table = link_info.table;
@@ -990,6 +1080,7 @@ impl Default for SkillEditorApp {
             link_src_field: String::new(),
             menus: Vec::new(),
             console_show: false,
+            cfg: AppCfg::default(),
         }
     }
 }
@@ -1001,6 +1092,11 @@ impl eframe::App for SkillEditorApp {
         self.draw_view(ctx);
         self.draw_link_window(ctx);
         self.draw_templete(ctx);
+        self.cfg.ui(ctx);
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, &self.cfg);
     }
 }
 

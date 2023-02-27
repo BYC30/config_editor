@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use eframe::egui;
 use egui::text::LayoutJob;
+use serde::{Serialize, Deserialize};
 
 pub fn code_view_ui(ui: &mut egui::Ui, code: & mut String, language: &str) -> bool {
     let theme = CodeTheme::from_memory(ui.ctx());
@@ -60,8 +61,7 @@ pub fn highlight(ctx: &egui::Context, theme: &CodeTheme, code: &str, language: &
 
 // ----------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Hash, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Hash, PartialEq, Serialize, Deserialize)]
 enum SyntectTheme {
     Base16EightiesDark,
     Base16MochaDark,
@@ -123,8 +123,7 @@ impl SyntectTheme {
     }
 }
 
-#[derive(Clone, Hash, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Hash, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct CodeTheme {
     dark_mode: bool,
