@@ -414,7 +414,7 @@ impl FieldInfo {
                 EEditorType::UEFile => {
                     ui.horizontal_centered(|ui|{
                         let mut v = val.clone();
-                        if ui.button("选择UE文件").clicked() {
+                        if ui.button("📁").clicked() {
                             if let Some(path) = rfd::FileDialog::new()
                             .add_filter("uasset", &["uasset"])
                             .pick_file() {
@@ -434,7 +434,7 @@ impl FieldInfo {
                 EEditorType::Blueprint => {
                     ui.horizontal_centered(|ui|{
                         let mut v = val.clone();
-                        if ui.button("选择蓝图").clicked() {
+                        if ui.button("📁").clicked() {
                             if let Some(path) = rfd::FileDialog::new()
                             .add_filter("uasset", &["uasset"])
                             .pick_file() {

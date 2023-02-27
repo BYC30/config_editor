@@ -1,5 +1,5 @@
 use std::{collections::HashMap, process::Command, sync::Mutex};
-use eframe::{egui::{self, RichText}, epaint::Color32};
+use eframe::{egui::{self, RichText, TextStyle}, epaint::Color32};
 use anyhow::{Result, bail};
 use itertools::Itertools;
 use serde::{Serialize, Deserialize};
@@ -129,8 +129,23 @@ impl SkillEditorApp {
             .entry(egui::FontFamily::Monospace)
             .or_default()
             .push("my_font".to_owned());
+        
+        
+        
+        let mut style: egui::Style = (*cc.egui_ctx.style()).clone();
+        let item = style.text_styles.get_mut(&TextStyle::Button);
+        if item.is_some(){
+            let item = item.unwrap();
+            item.size = 20.0;
+        }
+        cc.egui_ctx.set_style(style);
         cc.egui_ctx.set_fonts(fonts);
-        cc.egui_ctx.set_visuals(egui::Visuals::dark());
+        let mut visual = egui::Visuals::dark();
+        visual.panel_fill = Color32::from_rgb(30, 30, 30);
+        visual.faint_bg_color = Color32::from_rgb(37, 37, 37);
+        visual.collapsing_header_frame = true;
+        visual.slider_trailing_fill = true;
+        cc.egui_ctx.set_visuals(visual);
 
         utils::hide_console_window();
 
@@ -396,10 +411,9 @@ impl SkillEditorApp {
     fn draw_menu(&mut self, ctx: &egui::Context){
         egui::TopBottomPanel::top("menu").show(ctx, |ui|{
             egui::menu::bar(ui, |ui|{
-                egui::widgets::global_dark_light_mode_switch(ui);
-                if ui.button("保存").clicked(){ self.save_data();}
-                if ui.button("重新载入").clicked(){ self.load_config(true);}
-                if ui.button("控制台").clicked() {
+                if ui.button("💾保存").clicked(){ self.save_data();}
+                if ui.button("🔃重新载入").clicked(){ self.load_config(true);}
+                if ui.button("🖥控制台").clicked() {
                     if self.console_show {
                         utils::hide_console_window();
                     }else{
@@ -627,13 +641,14 @@ impl SkillEditorApp {
 
                 ui.horizontal(|ui|{
                     ui.heading(title);
+                    
                 });
                 ui.horizontal(|ui|{
-                    if ui.button("+").on_hover_text("新增配置").clicked() {op=1;}
-                    if ui.button("-").on_hover_text("删除配置").clicked() {op=2;}
-                    if ui.button("‖").on_hover_text("复制配置").clicked() {op=5;}
-                    if ui.button("↓").on_hover_text("导入配置").clicked() {op=3;}
-                    if ui.button("↑").on_hover_text("导出配置").clicked() {op=4;}
+                    if ui.button("➕").on_hover_text("新增配置").clicked() {op=1;}
+                    if ui.button("❌").on_hover_text("删除配置").clicked() {op=2;}
+                    if ui.button("📋").on_hover_text("复制配置").clicked() {op=5;}
+                    if ui.button("📥").on_hover_text("导入配置").clicked() {op=3;}
+                    if ui.button("📤").on_hover_text("导出配置").clicked() {op=4;}
                     if show_all.is_some() {
                         all = show_all.unwrap();
                         ui.checkbox(&mut all, "").on_hover_text("显示全部");
@@ -986,6 +1001,11 @@ impl eframe::App for SkillEditorApp {
         self.draw_view(ctx);
         self.draw_link_window(ctx);
         self.draw_templete(ctx);
+        egui::Window::new("🔧 Settings")
+            .vscroll(true)
+            .show(ctx, |ui| {
+                ctx.settings_ui(ui);
+            });
     }
 }
 
