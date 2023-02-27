@@ -1001,11 +1001,6 @@ impl eframe::App for SkillEditorApp {
         self.draw_view(ctx);
         self.draw_link_window(ctx);
         self.draw_templete(ctx);
-        egui::Window::new("🔧 Settings")
-            .vscroll(true)
-            .show(ctx, |ui| {
-                ctx.settings_ui(ui);
-            });
     }
 }
 
