@@ -206,7 +206,7 @@ impl FieldInfo {
             }
         }
         
-        let size = ui.available_size();
+        // let size = ui.available_size();
         let mut click_flag = false;
         let grid_id = format!("detail_panel_grid_{}", idx);
         let grid = egui::Grid::new(grid_id)
