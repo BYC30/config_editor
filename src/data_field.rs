@@ -46,7 +46,7 @@ pub struct FieldInfo {
     pub opt: Vec<EnumOption>,
     pub bit_name: Vec<String>,
     pub sub_field_key: String,
-    pub default: String,
+    pub default_val: String,
     pub link_table: String,
     pub export: bool,
     pub header: Vec<String>,
@@ -137,7 +137,7 @@ impl FieldInfo {
             is_array,
             suffix,
             origin: field_type.clone(),
-            default,
+            default_val: default,
             link_table,
             export,
             header,
@@ -274,7 +274,7 @@ impl FieldInfo {
             if reset {
                 let info = templete.get(&one.id).unwrap();
                 for field in &info.field {
-                    one.data.insert(field.name.clone(), field.default.clone());
+                    one.data.insert(field.name.clone(), field.default_val.clone());
                 }
             }
             let id = format!("{}_{}_{}_CollapsingHeader", self.name, idx, child_idx);

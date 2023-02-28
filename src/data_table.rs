@@ -196,7 +196,7 @@ impl DataTable {
             for mut one in data {
                 for field in &self.info {
                     if one.contains_key(&field.name) {continue;}
-                    one.insert(field.name.clone(), field.default.clone());
+                    one.insert(field.name.clone(), field.default_val.clone());
                 }
 
                 self.data.push(one);
@@ -236,7 +236,6 @@ impl DataTable {
         let mut max_group = 1;
         let group_key = self.group_key.clone();
         let master_field = self.master_field.clone();
-        println!("table[{}] create row group[{}] master[{}]", self.table_name, group_key, master_field);
         for one in &self.data {
             let key_val = utils::map_get_i32(&one, &self.key_name);
             if key_val >= max {max = key_val + 1;}
@@ -253,13 +252,18 @@ impl DataTable {
         }
 
         for one in &self.info {
-            let mut v = one.default.clone();
+            let mut v = one.default_val.clone();
             if group_key == one.name {v = max_group.to_string();}
             if one.is_key { v = max.to_string();}
             if master_field == one.name {v = master_val.clone();}
-            println!("create_row field[{}] default[{}] is_key[{}] master_key[{}] finial[{}]", one.name, one.default, one.is_key, master_field, v);
+
+            let v = v.replace("%key%", max.to_string().as_str());
+            let v = v.replace("%group%", max_group.to_string().as_str());
+            let v = v.replace("%master%", master_val.as_str());
             row.insert(one.name.clone(), v);
         }
+
+        println!("创建数据: {:?}", row);
         return row;
     }
 

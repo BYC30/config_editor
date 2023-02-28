@@ -659,7 +659,7 @@ impl SkillEditorApp {
                     self.templete_table = create_tmp;
                     self.templete_data = HashMap::new();
                     for field in field_info {
-                        self.templete_data.insert(field.name.clone(), field.default.clone());
+                        self.templete_data.insert(field.name.clone(), field.default_val.clone());
                     }
                     let t = data_table.templete.get(data_table.templete_idx as usize).unwrap();
                     self.templete_content = t.content.clone();
