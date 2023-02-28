@@ -886,8 +886,8 @@ impl SkillEditorApp {
                     let grid = egui::Grid::new(grid_id)
                         .num_columns(2)
                         .spacing([4.0, 4.0])
-                        .striped(true)
-                        .min_col_width(size.x/2.0 - 64.0);
+                        .min_col_width(size.x/5.0)
+                        .striped(true);
                     grid.show(ui, |ui|{
                         for (idx, one) in vec {
                             let f = one.create_ui(&mut map, ui, select_field == idx - 1, search, 0);

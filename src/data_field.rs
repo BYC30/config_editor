@@ -212,8 +212,8 @@ impl FieldInfo {
         let grid = egui::Grid::new(grid_id)
             .num_columns(2)
             .spacing([4.0, 4.0])
-            .striped(true)
-            .min_col_width(size.x/2.0 - 64.0);
+            // .min_col_width(size.x/3.0)
+            .striped(true);
         grid.show(ui, |ui|{
             for one in field {
                 let f = one.create_ui(&mut map, ui, false, &String::new(), idx);
