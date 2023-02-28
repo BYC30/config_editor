@@ -581,7 +581,8 @@ impl FieldInfo {
             None => {String::new()},
         };
 
-        let title = format!("{}\r\n{}", self.title, self.name);
+        let mut title = self.title.clone();
+        if self.title != self.name {title = format!("{}({})", self.title, self.name);}
         let mut txt = egui::RichText::new(title.clone());
         let search_low = search.to_lowercase();
         if !search_low.is_empty()  && (title.to_lowercase().contains(&search_low) || v.to_lowercase().contains(&search_low)) {
