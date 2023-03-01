@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, process::Command};
 
 use anyhow::Result;
 use calamine::{DataType, Range};
@@ -157,4 +157,29 @@ pub fn show_console_window() {
             ShowWindow(window, SW_SHOW);
         }
     }
+}
+
+
+pub fn exec_bat(path:&String) -> Result<()> {
+    let mut current_exe = std::env::current_exe()?;
+    current_exe.pop();
+    current_exe.push(path.clone());
+
+    let full_path = dunce::canonicalize(current_exe)?;
+    let mut bat_dir_path = full_path.clone();
+    bat_dir_path.pop();
+    Command::new("cmd")
+        .current_dir(bat_dir_path)
+        .args(&["/C", full_path.to_str().unwrap()])
+        .spawn()?;
+
+    return Ok(());
+}
+
+pub fn ordered_map<S>(value: &HashMap<String, String>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
+    serde::Serialize::serialize(&ordered, serializer)
 }

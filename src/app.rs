@@ -1,4 +1,4 @@
-use std::{collections::HashMap, process::Command, sync::Mutex};
+use std::{collections::HashMap, sync::Mutex};
 use eframe::{egui::{self, RichText}, epaint::Color32};
 use anyhow::{Result, bail};
 use itertools::Itertools;
@@ -56,24 +56,8 @@ impl MenuInfo {
         self.trigger();
     }
 
-    fn _trigger(&self) -> Result<()> {
-        let mut current_exe = std::env::current_exe()?;
-        current_exe.pop();
-        current_exe.push(self.exe.clone());
-
-        let full_path = dunce::canonicalize(current_exe)?;
-        let mut bat_dir_path = full_path.clone();
-        bat_dir_path.pop();
-        Command::new("cmd")
-            .current_dir(bat_dir_path)
-            .args(&["/C", full_path.to_str().unwrap()])
-            .spawn()?;
-
-        return Ok(());
-    }
-
     fn trigger(&self){
-        let ret = self._trigger();
+        let ret = utils::exec_bat(&self.exe);
         match ret {
             Ok(_) => {},
             Err(e) => {
@@ -243,16 +227,29 @@ impl SkillEditorApp {
 
     pub fn save_data(&mut self){
         let mut info = Vec::new();
-        for (_, data_table) in &self.data_table {
+        let mut error_info = Vec::new();
+        let mut reload = false;
+        for (_, data_table) in &mut self.data_table {
             let result = data_table.save_json();
-            let msg = match result {
-                Ok(_) => {"成功".to_string()},
-                Err(e) => {e.to_string()},
+            if data_table.reload_editor {reload = true;}
+            match result {
+                Ok((changed, msg)) => {
+                    if changed && data_table.reload_editor {reload = true;}
+                    info.push(format!("[{}]{}", data_table.table_name, msg));
+                },
+                Err(e) => {
+                    let msg = e.to_string();
+                    error_info.push(format!("[{}]{}", data_table.table_name, msg));
+                },
             };
-            info.push(format!("[{}]{}", data_table.table_name, msg));
         }
         
-        utils::msg(info.join("\n"), "导出完毕".to_string());
+        let mut msg = info.join("\n");
+        if error_info.len() > 0 {
+            msg = format!("{}\n\n错误:\n{}", msg, error_info.join("\n"));
+        }
+        utils::msg(msg, "导出完毕".to_string());
+        if reload {self.load_config(true);}
     }
 
     fn load_menu_config(&mut self) -> Result<()> {
@@ -336,6 +333,11 @@ impl SkillEditorApp {
             export_sort: String,
             output_type: Vec<String>,
             output_path: Vec<String>,
+
+            #[serde(default)]
+            post_exec: String,
+            #[serde(default)]
+            reload_editor: bool,
         }
 
         #[derive(Serialize, Deserialize)]
@@ -389,7 +391,8 @@ impl SkillEditorApp {
                     templete.push(one.clone());
                 }
             }
-            let data_table = DataTable::new(one.table_key.clone(), one.show_name, one.show_field, one.master_field, one.group_field, one.export_sort, one.output_type, one.output_path, info, templete);
+            let mut data_table = DataTable::new(one.table_key.clone(), one.show_name, one.show_field, one.master_field, one.group_field, one.export_sort, one.output_type, one.output_path, info, templete, one.post_exec);
+            data_table.reload_editor = one.reload_editor;
             self.data_table.insert(one.table_key.clone(), data_table);
         }
 

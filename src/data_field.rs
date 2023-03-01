@@ -172,6 +172,7 @@ fn uasset2str(path: PathBuf, is_bp: bool) -> Result<String> {
 #[derive(Serialize, Deserialize)]
 struct TempleteData{
     id: String,
+    #[serde(serialize_with = "utils::ordered_map")]
     data: HashMap<String, String>,
 }
 

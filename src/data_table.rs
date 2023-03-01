@@ -23,6 +23,9 @@ pub struct DataTable {
     pub data: Vec<HashMap<String, String>>,
     pub key_name: String,
     pub templete: Vec<TempleteInfo>,
+    pub post_save_exec: String,
+    pub reload_editor: bool,
+    pub data_hash: String,
 
     // UI 相关
     pub cur: i32,
@@ -36,7 +39,7 @@ pub struct DataTable {
 }
 
 impl DataTable {
-    pub fn new(table_name: String, show_name:String, show_field:String, master_field:String, group_field:String, export_sort:String, output_type:Vec<String>, output_path:Vec<String>, info:Vec<FieldInfo>, templete:Vec<TempleteInfo>) -> DataTable{
+    pub fn new(table_name: String, show_name:String, show_field:String, master_field:String, group_field:String, export_sort:String, output_type:Vec<String>, output_path:Vec<String>, info:Vec<FieldInfo>, templete:Vec<TempleteInfo>, post_save_exec:String) -> DataTable{
         let key_name = String::new();
         
         let ret = DataTable{
@@ -48,7 +51,10 @@ impl DataTable {
             export_sort,
             output_type,
             output_path,
-            
+            post_save_exec,
+            reload_editor: false,
+            data_hash: String::new(),
+
             info,
             data: Vec::new(),
             key_name,
@@ -68,6 +74,15 @@ impl DataTable {
 }
 
 impl DataTable {
+    fn calc_data_hash(&self) -> String {
+        let json = serde_json::to_string(&self.data).unwrap(); 
+        let hash = format!("{:x}", md5::compute(&json));
+        if self.table_name == "skill" {
+            println!("calc data[{}] hash[{}] old[{}]", json, hash, self.data_hash);
+        }
+        return hash;
+    }
+
     fn _load_data(&mut self) -> Result<()> {
         for one in &self.info {
             if !one.is_key {continue;}
@@ -118,7 +133,10 @@ impl DataTable {
     }
 
 
-    pub fn save_json(&self) -> Result<()> {
+    pub fn save_json(&mut self) -> Result<(bool, String)> {
+        let hash = self.calc_data_hash();
+        if hash == self.data_hash {return Ok((false, "未改变, 跳过".to_string()));}
+
         let mut path = std::env::current_exe()?;
         path.pop();
 
@@ -133,7 +151,23 @@ impl DataTable {
             idx = idx + 1;
         }
         let p = self.get_save_json()?;
-        return self._save_json(p);
+        self._save_json(p)?;
+
+        let mut msg = String::new();
+        if !self.post_save_exec.is_empty() {
+            let result = utils::exec_bat(&self.post_save_exec);
+            msg = match result {
+                Ok(_) => {"后处理脚本:执行成功".to_string()},
+                Err(e) => {format!("后处理脚本:{:?}", e)},
+            };
+        }
+
+        self.data_hash = hash;
+        let mut ret_msg = "成功".to_string();
+        if !msg.is_empty() {
+            ret_msg = format!("{} - {}", ret_msg, msg);
+        }
+        return Ok((true, ret_msg));
     }
 
     fn _save_json(&self, path: PathBuf) -> Result<()> {
@@ -183,14 +217,10 @@ impl DataTable {
 
     fn load_json(&mut self, path:&PathBuf) -> Result<()> {
         if !path.exists() {return Ok(());}
-        println!("load json from path[{:?}]", path);
         for entry in WalkDir::new(path) {
             let entry = entry?;
             let p = entry.path();
             if p.is_dir() {continue;}
-            let a1 = entry.file_name();
-            let a2 = entry.file_type();
-            println!("read[{:?}] to string a1[{:?}] a2[{:?}]", p, a1, a2);
             let s = std::fs::read_to_string(p)?;
             let data: Vec<HashMap<String, String>> = serde_json::from_str(&s)?;
             for mut one in data {
@@ -202,6 +232,7 @@ impl DataTable {
                 self.data.push(one);
             }
         }
+        self.data_hash = self.calc_data_hash();
         Ok(())
     }
 
