@@ -304,10 +304,10 @@ impl DataTable {
         self.cur_row = self.data.len() as i32 - 1;
     }
 
-    pub fn delete_cur_row(&mut self) {
+    pub fn delete_cur_row(&mut self, next_row:i32) {
         if self.cur_row < 0 || self.cur_row >= self.data.len() as i32 {return;}
         self.data.remove(self.cur_row as usize);
-        self.cur_row = -1;
+        self.cur_row = next_row;
     }
 
     pub fn copy_row(&mut self, idx: usize, master_val: &String) {

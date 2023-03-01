@@ -674,7 +674,32 @@ impl SkillEditorApp {
                 data_table.create_row(&cur_master_val);
             }
             if op == 2 {
-                data_table.delete_cur_row();
+                let mut next = -1;
+                let cur = data_table.cur_row;
+                let mut found = false;
+                for (_, v) in &list {
+                    for (_, vv) in v {
+                        let mut vec_idx:i32 = 0;
+                        for (_, idx, _, _) in vv {
+                            if *idx == cur {
+                                found = true;
+                                break;
+                            }
+                            vec_idx = vec_idx + 1;
+                        }
+                        if found {
+                            let len = vv.len() as i32;
+                            let diff = if vec_idx + 1 >= len {-1} else{1};
+                            vec_idx = vec_idx + diff;
+                            if vec_idx >= 0 && vec_idx < len {
+                                next = vv.get(vec_idx as usize).unwrap().1;
+                            }
+                            break;
+                        }
+                    }
+                }
+                if next > cur {next = next - 1;} // idx 比当前大, 减一
+                data_table.delete_cur_row(next);
             }
             if op == 3 {
                 if let Some(path) = rfd::FileDialog::new()
