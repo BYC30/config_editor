@@ -77,9 +77,6 @@ impl DataTable {
     fn calc_data_hash(&self) -> String {
         let json = serde_json::to_string(&self.data).unwrap(); 
         let hash = format!("{:x}", md5::compute(&json));
-        if self.table_name == "skill" {
-            println!("calc data[{}] hash[{}] old[{}]", json, hash, self.data_hash);
-        }
         return hash;
     }
 
