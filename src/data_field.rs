@@ -3,7 +3,7 @@ use anyhow::{Result, bail};
 use eframe::{egui, epaint::Color32};
 use serde::{Serialize, Deserialize};
 
-use crate::{error, app::{TEMPLETE_MAP_EXPR, TEMPLETE_MAP_SUB_FIELD, TempleteInfo}, utils::{self, map2tablestr}, syntax_highlight::show_code_view_ui};
+use crate::{error, app::app::{TEMPLETE_MAP_EXPR, TEMPLETE_MAP_SUB_FIELD, TempleteInfo}, utils::{self, map2tablestr}, syntax_highlight::show_code_view_ui};
 
 
 #[derive(Debug, PartialEq, Clone)]

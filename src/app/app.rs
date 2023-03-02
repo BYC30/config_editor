@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use egui_notify::Toasts;
 use itertools::Itertools;
 use serde::{Serialize, Deserialize};
-use crate::{utils, error, data_table::DataTable, data_field::FieldInfo, app_cfg::AppCfg};
+use crate::{utils, error, data_table::DataTable, data_field::FieldInfo, app::app_cfg::AppCfg};
 
 lazy_static! {
     pub static ref TEMPLETE_MAP_EXPR: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
@@ -104,7 +104,7 @@ impl SkillEditorApp {
         let mut fonts = egui::FontDefinitions::default();
         fonts.font_data.insert(
             "my_font".to_owned(),
-            egui::FontData::from_static(include_bytes!("../chinese.simhei.ttf")),
+            egui::FontData::from_static(include_bytes!("../../chinese.simhei.ttf")),
         );
         fonts
             .families
