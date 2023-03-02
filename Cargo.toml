@@ -19,7 +19,6 @@ lazy_static = "1.4.0"
 md5 = "0.7.0"
 
 # UI相关
-catppuccin-egui = "2.0.0"
 egui-notify = "0.6.0"
 eframe = {version = "0.21.0", features = ["persistence"] }
 simple-message-box = "0.0.2"
