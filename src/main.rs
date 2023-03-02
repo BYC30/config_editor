@@ -8,9 +8,8 @@ mod utils;
 mod app;
 mod data_field;
 mod saver;
-mod syntax_highlight;
 
-use crate::app::app::SkillEditorApp;
+use crate::app::SkillEditorApp;
 
 fn main() {
     let mut opt = eframe::NativeOptions::default();
