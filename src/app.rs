@@ -104,19 +104,18 @@ impl AppCfg {
                     .spacing([40.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
-                        ui.label("应用设置");
-                        if ui.button("打开设置").clicked() {
+                        ui.label("UI设置");
+                        if ui.button("打开").clicked() {
                             self.show_setting = true;
                         }
                         ui.end_row();
 
-
                         ui.add(egui::Label::new("样式"));
                         ui.horizontal(|ui| {
                             ui.radio_value(&mut self.base_theme, 0, "Dark");
-                            ui.radio_value(&mut self.base_theme, 1, "FRAPPE");
-                            ui.radio_value(&mut self.base_theme, 2, "MACCHIATO");
                             ui.radio_value(&mut self.base_theme, 3, "MOCHA");
+                            ui.radio_value(&mut self.base_theme, 2, "MACCHIATO");
+                            ui.radio_value(&mut self.base_theme, 1, "FRAPPE");
                         });
                         ui.end_row();
                     });
