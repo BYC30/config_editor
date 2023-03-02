@@ -70,7 +70,7 @@ pub fn tablestr2map(table:&String) -> Result<HashMap<String, String>>{
 
 pub fn map2tablestr(map:&HashMap<String, String>) -> Result<String> {
     let mut ret = Vec::new();
-    for (k, v) in map {
+    for (k, v) in map.iter().sorted() {
         ret.push(format!("{}=\"{}\"", k, v.as_str()));
     }
     let s = format!("{{{}}}", ret.join(", "));
