@@ -20,6 +20,17 @@ pub fn msg(content:String, title:String){
         .show();
 }
 
+pub fn toast(toast: &mut egui_notify::Toasts, icon: &str, msg: impl Into<String>){
+    match icon {
+        "INFO" => {toast.info(msg).set_duration(Some(std::time::Duration::from_secs(5)));}
+        "ERRO" => {toast.error(msg).set_closable(true).set_duration(None);}
+        "SUCC" => {toast.success(msg).set_duration(Some(std::time::Duration::from_secs(5)));}
+        _ => {
+            toast.basic(msg).set_duration(Some(std::time::Duration::from_secs(5)));
+        }
+    }
+}
+
 pub fn map_get_i32(map:&HashMap<String, String>, key:&String) -> i32 {
     let mut ret = 0;
     let v = map.get(key);

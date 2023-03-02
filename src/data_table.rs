@@ -133,9 +133,9 @@ impl DataTable {
     }
 
 
-    pub fn save_json(&mut self) -> Result<(bool, String)> {
+    pub fn save_json(&mut self, force: bool) -> Result<(bool, String)> {
         let hash = self.calc_data_hash();
-        if hash == self.data_hash {return Ok((false, "未改变, 跳过".to_string()));}
+        if !force && hash == self.data_hash {return Ok((false, "未改变, 跳过".to_string()));}
 
         let mut path = std::env::current_exe()?;
         path.pop();
@@ -232,7 +232,7 @@ impl DataTable {
                 self.data.push(one);
             }
         }
-        self.data_hash = self.calc_data_hash();
+        self.data_hash = self.calc_data_hash(); 
         Ok(())
     }
 

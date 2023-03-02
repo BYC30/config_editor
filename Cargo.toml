@@ -6,22 +6,31 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = {version = "0.21.0", features = ["persistence"] }
-syntect = "5.0.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-rfd = "0.5.0"
-simple-message-box = "0.0.2"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 thiserror = "1.0.30"
 anyhow = "1.0.45"
-calamine = "0.18.0"
-load_file = "1.0.1"
-xlsxwriter = "0.3.5"
 itertools = "0.10.3"
-walkdir = "2.3.2"
 mlua = { version = "0.8", features = ["lua54", "vendored", "serialize"] }
-dunce = "1.0.3"
 winapi = {version = "0.3", features = ["wincon", "winuser"]}
 lazy_static = "1.4.0"
 
+# 用于计算 HashMap 的 md5 以便判断是否变化
+md5 = "0.7.0"
+
+# UI相关
 catppuccin-egui = "2.0.0"
+egui-notify = "0.6.0"
+eframe = {version = "0.21.0", features = ["persistence"] }
+simple-message-box = "0.0.2"
+syntect = "5.0.0"
+
+# 文件相关
+dunce = "1.0.3"
+rfd = "0.5.0"
+walkdir = "2.3.2"
+#load_file = "1.0.1"
+
+# 读写相关
+calamine = "0.18.0"
+xlsxwriter = "0.3.5"

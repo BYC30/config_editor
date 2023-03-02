@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Mutex};
 use eframe::{egui::{self, RichText}, epaint::Color32};
 use anyhow::{Result, bail};
+use egui_notify::Toasts;
 use itertools::Itertools;
 use serde::{Serialize, Deserialize};
 use crate::{utils, error, data_table::DataTable, data_field::FieldInfo};
@@ -156,7 +157,6 @@ impl AppCfg {
     }
 }
 
-#[derive(Debug)]
 pub struct SkillEditorApp {
     inited: bool,
 
@@ -183,6 +183,7 @@ pub struct SkillEditorApp {
     console_show: bool,
 
     cfg: AppCfg,
+    toasts: Toasts,
 }
 
 impl SkillEditorApp {
@@ -224,31 +225,28 @@ impl SkillEditorApp {
         return ret;
     }
 
-    pub fn save_data(&mut self){
-        let mut info = Vec::new();
-        let mut error_info = Vec::new();
+    pub fn save_data(&mut self, force: bool){
         let mut reload = false;
         for (_, data_table) in &mut self.data_table {
-            let result = data_table.save_json();
-            if data_table.reload_editor {reload = true;}
+            let result = data_table.save_json(force);
             match result {
                 Ok((changed, msg)) => {
-                    if changed && data_table.reload_editor {reload = true;}
-                    info.push(format!("[{}]{}", data_table.table_name, msg));
+                    if changed {
+                        utils::toast(&mut self.toasts, "SUCC", format!("[{}]{}", data_table.table_name, msg));
+                        if data_table.reload_editor {reload = true;}
+                    }
                 },
                 Err(e) => {
                     let msg = e.to_string();
-                    error_info.push(format!("[{}]{}", data_table.table_name, msg));
+                    utils::toast(&mut self.toasts, "ERRO", format!("[{}]{}", data_table.table_name, msg));
                 },
             };
         }
-        
-        let mut msg = info.join("\n");
-        if error_info.len() > 0 {
-            msg = format!("{}\n\n错误:\n{}", msg, error_info.join("\n"));
+
+        if reload {
+            self.load_config(true);
+            utils::toast(&mut self.toasts, "SUCC", "重载配置成功");
         }
-        utils::msg(msg, "导出完毕".to_string());
-        if reload {self.load_config(true);}
     }
 
     fn load_menu_config(&mut self) -> Result<()> {
@@ -502,7 +500,7 @@ impl SkillEditorApp {
     fn draw_menu(&mut self, ctx: &egui::Context){
         egui::TopBottomPanel::top("menu").show(ctx, |ui|{
             egui::menu::bar(ui, |ui|{
-                if ui.button("💾保存").clicked(){ self.save_data();}
+                if ui.button("💾保存").clicked(){ self.save_data(true);}
                 if ui.button("🔃重新载入").clicked(){ self.load_config(true);}
                 if ui.button("🔧应用配置").clicked(){ self.cfg.show();}
                 if ui.button("🖥控制台").clicked() {
@@ -515,7 +513,7 @@ impl SkillEditorApp {
                 }
                 if ui.input(|i|i.key_pressed(egui::Key::S) && i.modifiers.ctrl) {
                 // if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
-                    self.save_data();
+                    self.save_data(ui.input(|i|{i.modifiers.shift}));
                 }
                 let mut list: Vec<(String, Vec<MenuInfo>)> = Vec::new();
                 for one in &self.menus {
@@ -705,10 +703,12 @@ impl SkillEditorApp {
                     .add_filter("xlsm", &["xlsm", "xlsx"])
                     .pick_file() {
                         match data_table.import_excel(path, data_table.table_name.clone()){
-                            Ok(_) => {utils::msg("导入成功".to_string(), "成功".to_string())},
+                            Ok(_) => {
+                                utils::toast(&mut self.toasts, "SUCC", format!("导入[{}]成功", data_table.table_name));
+                            },
                             Err(e) => {
                                 let msg = format!("导入失败: {:?}", e);
-                                utils::msg(msg, "失败".to_string());
+                                utils::toast(&mut self.toasts, "ERRO", msg);
                             }
                         }
                     }
@@ -719,10 +719,10 @@ impl SkillEditorApp {
                     .add_filter("xlsx", &["xlsx"])
                     .save_file() {
                         match data_table.export_excel(path, data_table.table_name.clone()){
-                            Ok(_) => {utils::msg("导出成功".to_string(), "成功".to_string())},
+                            Ok(_) => {utils::toast(&mut self.toasts, "SUCC", format!("导出[{}]成功", data_table.table_name));},
                             Err(e) => {
                                 let msg = format!("导出失败: {:?}", e);
-                                utils::msg(msg, "失败".to_string());
+                                utils::toast(&mut self.toasts, "ERRO", msg);
                             }
                         }
                     }
@@ -1108,6 +1108,7 @@ impl Default for SkillEditorApp {
             menus: Vec::new(),
             console_show: false,
             cfg: AppCfg::default(),
+            toasts: Toasts::default().with_anchor(egui_notify::Anchor::BottomRight),
         }
     }
 }
@@ -1120,6 +1121,8 @@ impl eframe::App for SkillEditorApp {
         self.draw_link_window(ctx);
         self.draw_templete(ctx);
         self.cfg.ui(ctx);
+
+        self.toasts.show(ctx);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
