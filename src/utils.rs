@@ -2,6 +2,7 @@ use std::{collections::HashMap, process::Command};
 
 use anyhow::Result;
 use calamine::{DataType, Range};
+use itertools::Itertools;
 
 pub fn get_cell(range: &Range<DataType>, x: u32, y: u32) -> String {
     let one = range.get_value((x, y));
