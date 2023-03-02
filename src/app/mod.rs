@@ -1,5 +1,6 @@
 pub mod app_cfg;
 pub mod syntax_highlight;
+pub mod theme;
 
 use std::{collections::HashMap, sync::Mutex};
 use eframe::{egui::{self, RichText}, epaint::Color32};
