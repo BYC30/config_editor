@@ -1,4 +1,4 @@
-use eframe::{egui, epaint::Color32};
+use eframe::{egui::{self, DragValue}, epaint::Color32};
 use serde::{Serialize, Deserialize};
 
 use crate::app::theme;
@@ -22,17 +22,29 @@ impl Default for AppCfg {
     }
 }
 
-macro_rules! color_row {
-    ($ui:expr, $name:expr, $item:expr) => {
-        $ui.label($name);
-        $ui.color_edit_button_srgba(&mut $item);
-        $ui.end_row();
-    };
-}
-
 impl AppCfg {
     pub fn show(&mut self){
         self.show = true;
+    }
+
+    pub fn color_grid(ui: &mut egui::Ui, title: &str, color:&mut Color32){
+        ui.label(title);
+        ui.horizontal(|ui|{
+            ui.color_edit_button_srgba(color);
+            
+            let mut r = color.r();
+            let mut g = color.g();
+            let mut b = color.b();
+            let mut a = color.a();
+
+            ui.add(DragValue::new(&mut r).prefix("r:").clamp_range(0.0..=255.0),);
+            ui.add(DragValue::new(&mut g).prefix("g:").clamp_range(0.0..=255.0),);
+            ui.add(DragValue::new(&mut b).prefix("b:").clamp_range(0.0..=255.0),);
+            ui.add(DragValue::new(&mut a).prefix("a:").clamp_range(0.0..=255.0),);
+            
+            *color = Color32::from_rgba_premultiplied(r, g, b, a);
+        });
+        ui.end_row();
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
@@ -80,17 +92,17 @@ impl AppCfg {
                                     .spacing([40.0, 4.0])
                                     .striped(true)
                                     .show(ui, |ui| {
-                                        color_row!(ui, "背景颜色", self.custom_theme.base);
-                                        color_row!(ui, "表格间隔颜色", self.custom_theme.surface0);
-                                        color_row!(ui, "超链接颜色", self.custom_theme.rosewater);
-                                        color_row!(ui, "错误颜色", self.custom_theme.maroon);
-                                        color_row!(ui, "警告颜色", self.custom_theme.peach);
-                                        color_row!(ui, "选中颜色", self.custom_theme.blue);
-                                        color_row!(ui, "文字颜色", self.custom_theme.text);
-                                        color_row!(ui, "边框颜色", self.custom_theme.overlay1);
-                                        color_row!(ui, "控件悬浮颜色", self.custom_theme.surface2);
-                                        color_row!(ui, "控件激活颜色", self.custom_theme.surface1);
-                                        color_row!(ui, "输入框背景颜色", self.custom_theme.crust);
+                                        AppCfg::color_grid(ui, "背景颜色", &mut self.custom_theme.base);
+                                        AppCfg::color_grid(ui, "表格间隔颜色", &mut self.custom_theme.surface0);
+                                        AppCfg::color_grid(ui, "超链接颜色", &mut self.custom_theme.rosewater);
+                                        AppCfg::color_grid(ui, "错误颜色", &mut self.custom_theme.maroon);
+                                        AppCfg::color_grid(ui, "警告颜色", &mut self.custom_theme.peach);
+                                        AppCfg::color_grid(ui, "选中颜色", &mut self.custom_theme.blue);
+                                        AppCfg::color_grid(ui, "文字颜色", &mut self.custom_theme.text);
+                                        AppCfg::color_grid(ui, "边框颜色", &mut self.custom_theme.overlay1);
+                                        AppCfg::color_grid(ui, "控件悬浮颜色", &mut self.custom_theme.surface2);
+                                        AppCfg::color_grid(ui, "控件激活颜色", &mut self.custom_theme.surface1);
+                                        AppCfg::color_grid(ui, "输入框背景颜色", &mut self.custom_theme.crust);
                                     });
                                 });
                         });
