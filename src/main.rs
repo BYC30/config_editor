@@ -2,12 +2,11 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod data_table;
 mod error;
 mod utils;
 mod app;
-mod data_field;
 mod saver;
+mod data;
 
 use crate::app::SkillEditorApp;
 

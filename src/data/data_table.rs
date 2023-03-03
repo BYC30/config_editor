@@ -6,7 +6,9 @@ use serde_json::json;
 use walkdir::WalkDir;
 use xlsxwriter::{FormatAlignment, FormatColor, FormatBorder};
 
-use crate::{utils, error, data_field::FieldInfo, app::TempleteInfo, saver::{self, DataSaver}};
+use crate::{utils, error, app::TempleteInfo, saver::{self, DataSaver}};
+
+use super::data_field::FieldInfo;
 
 #[derive(Debug)]
 pub struct DataTable {
