@@ -188,7 +188,7 @@ impl TempleteData {
 }
 
 impl FieldInfo {
-    fn draw_one_templete(&self, field:&Vec<FieldInfo>, mut map:&mut HashMap<String, String>, ui: &mut egui::Ui, idx:i32) -> bool {
+    fn draw_one_templete(&self, field:&Vec<FieldInfo>, map:&mut HashMap<String, String>, ui: &mut egui::Ui, idx:i32) -> bool {
         let mut draw_info:Vec<(String, Vec<(i32, FieldInfo)>)> = Vec::new();
         let mut idx = idx * 10000;
         for one in field {
@@ -217,10 +217,17 @@ impl FieldInfo {
             .striped(true);
         grid.show(ui, |ui|{
             for one in field {
-                let f = one.create_ui(&mut map, ui, false, &String::new(), idx);
+                let val = map.get(&one.name);
+                let old = match val {
+                    Some(s) => {s.clone()},
+                    None => {String::new()},
+                };
+                let mut new = old.clone();
+                let f = one.create_ui(&mut new, ui, false, &String::new(), idx);
                 if f {
                     click_flag = true;
                 }
+                if old != new {map.insert(one.name.clone(), new);}
                 ui.end_row();
             }
         });
@@ -574,19 +581,14 @@ impl FieldInfo {
         return (ret, msg)
     }
 
-    pub fn create_ui(&self, map: &mut HashMap<String, String>, ui: &mut egui::Ui, selected: bool, search:&String, start:i32) -> bool {
+    pub fn create_ui(&self, val: &mut String, ui: &mut egui::Ui, selected: bool, search:&String, start:i32) -> bool {
         let mut flag = false;
-        let val = map.get(&self.name);
-        let v = match val {
-            Some(s) => {s.clone()},
-            None => {String::new()},
-        };
 
         let mut title = self.title.clone();
         if self.title != self.name {title = format!("{}({})", self.title, self.name);}
         let mut txt = egui::RichText::new(title.clone());
         let search_low = search.to_lowercase();
-        if !search_low.is_empty()  && (title.to_lowercase().contains(&search_low) || v.to_lowercase().contains(&search_low)) {
+        if !search_low.is_empty()  && (title.to_lowercase().contains(&search_low) || val.to_lowercase().contains(&search_low)) {
             txt = txt.color(Color32::GREEN)
         }
         let resp = ui.selectable_label(selected, txt)
@@ -597,8 +599,8 @@ impl FieldInfo {
 
         if self.is_array {
             let mut arr:Vec<&str> = Vec::new();
-            if !v.is_empty() {
-                arr = v.split(";").collect();
+            if !val.is_empty() {
+                arr = val.split(";").collect();
             }
             let mut new = Vec::new();
             ui.vertical_centered(|ui| {
@@ -618,13 +620,12 @@ impl FieldInfo {
                     if f {flag = true};
                     new.push(ret);
                 }
-                let s = new.join(";");
-                map.insert(self.name.clone(), s);
             });
+            *val = new.join(";");
         }else{
-            let (f, ret) = self.create_one_ui(&v, ui, 1);
+            let (f, ret) = self.create_one_ui(&val, ui, 1);
             if f {flag = true;}
-            map.insert(self.name.clone(), ret);
+            *val = ret
         }
         return flag;
     }

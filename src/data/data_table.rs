@@ -1,6 +1,5 @@
-use std::{collections::{HashMap, HashSet}, path::PathBuf, fs};
+use std::{collections::HashMap, path::PathBuf, fs};
 use anyhow::{Result, bail};
-use calamine::{open_workbook_auto, Reader};
 use itertools::Itertools;
 use serde_json::json;
 use walkdir::WalkDir;
@@ -260,7 +259,7 @@ impl DataTable {
 
     }
 
-    fn _create_row(&mut self, master_val: &String) -> HashMap<String, String> {
+    pub fn create_row(&self, master_val: &String, offset:i32) -> HashMap<String, String> {
         let mut row = HashMap::new();
         let mut max = 1;
         let mut max_group = 1;
@@ -280,7 +279,8 @@ impl DataTable {
                 }
             }
         }
-
+        max = max + offset;
+        max_group = max_group + offset;
         for one in &self.info {
             let mut v = one.default_val.clone();
             if group_key == one.name {v = max_group.to_string();}
@@ -297,26 +297,14 @@ impl DataTable {
         return row;
     }
 
-    pub fn create_row(&mut self, master_val: &String) {
-        let row = self._create_row(master_val);
-        self.data.push(row);
-        self.cur_row = self.data.len() as i32 - 1;
-    }
-
-    pub fn delete_cur_row(&mut self, next_row:i32) {
-        if self.cur_row < 0 || self.cur_row >= self.data.len() as i32 {return;}
-        self.data.remove(self.cur_row as usize);
-        self.cur_row = next_row;
-    }
-
-    pub fn copy_row(&mut self, idx: usize, master_val: &String) {
+    pub fn copy_row(&self, idx: usize, master_val: &String, offset:i32) -> Option<HashMap<String, String>> {
         println!("copy_row {}", idx);
         let len = self.data.len();
         let cur_row = idx;
-        if cur_row >= len {return;}
-        let mut new_row = self._create_row(&master_val);
+        if cur_row >= len {return None;}
+        let mut new_row = self.create_row(&master_val, offset);
         let cur_row = self.data.get(cur_row as usize);
-        if cur_row.is_none() {return;}
+        if cur_row.is_none() {return None;}
         let cur_row = cur_row.unwrap();
 
         let group_key = self.group_key.clone();
@@ -330,12 +318,11 @@ impl DataTable {
             let cur = cur.unwrap();
             new_row.insert(one.name.clone(), cur.clone());
         }
-        self.data.push(new_row);
-        self.cur_row = self.data.len() as i32 - 1;
+        return Some(new_row);
     }
 
-    pub fn copy_cur_row(&mut self, master_val:&String) {
-        self.copy_row(self.cur_row as usize, master_val);
+    pub fn copy_cur_row(&self, master_val:&String) -> Option<HashMap<String, String>> {
+        self.copy_row(self.cur_row as usize, master_val, 0)
     }
 
     pub fn get_show_name_list(&self, master_key:&String, id:&String, show_all: bool, search: &String) -> HashMap<String, HashMap<String, Vec<(String, i32, i32, bool)>>> {
@@ -411,7 +398,7 @@ impl DataTable {
         return Some(name);
     }
 
-    fn get_field_by_name(info:&Vec<FieldInfo>, name:&String) -> Option<FieldInfo> {
+    pub fn get_field_by_name(info:&Vec<FieldInfo>, name:&String) -> Option<FieldInfo> {
         for one in info {
             if one.name == *name {
                 return Some(one.clone());
@@ -433,58 +420,6 @@ impl DataTable {
         self.cur_row = -1;
     }
 
-    pub fn import_excel(&mut self, path:PathBuf, tab:String) -> Result<()> {
-        let mut workbook= open_workbook_auto(path)?;
-        let range = workbook.worksheet_range(&tab)
-            .ok_or(error::AppError::SheetNotFound(tab))??;
-
-        let mut field_set = HashSet::new();
-        for one in &self.info {
-            field_set.insert(one.name.clone());
-        }
-
-        let mut row = 0;
-        let mut title_row = 0;
-        let mut flag = false;
-        for one in range.rows() {
-            let cell = one[0].to_string();
-            if field_set.contains(&cell) {
-                flag = true;
-                break;
-            }
-            row = row + 1;
-            title_row = title_row + 1;
-        }
-        if !flag {bail!(error::AppError::ImportExcelKeyNotFound(self.key_name.clone()))};
-
-        let mut data = Vec::new();
-        let max_size = range.get_size().0 as u32;
-        let max_col = range.get_size().1 as u32;
-        loop {
-            row = row + 1;
-            if row > max_size {break;}
-            let mut map = HashMap::new();
-            
-            let mut key = String::new();
-
-            for col in 0..max_col {
-                let title = utils::get_cell(&range, title_row, col);
-                let field_info = DataTable::get_field_by_name(&self.info, &title);
-                if field_info.is_none() {continue;}
-                let field_info = field_info.unwrap();
-                let v = utils::get_cell(&range, row, col);
-                if field_info.is_key {
-                    key = v.clone();
-                }
-                map.insert(field_info.name.clone(), v);
-            }
-
-            if key.is_empty() {continue;}
-            data.push(map);
-        }
-        self.data = data;
-        Ok(())
-    }
 
     pub fn export_excel(&self, path:PathBuf, tab:String) -> Result<()> {
         let default_path = "./导出.xlsx";

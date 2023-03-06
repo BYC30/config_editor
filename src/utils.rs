@@ -23,6 +23,7 @@ pub fn msg(content:String, title:String){
 
 pub fn toast(toast: &mut egui_notify::Toasts, icon: &str, msg: impl Into<String>){
     match icon {
+        "SHORT" => {toast.info(msg).set_duration(Some(std::time::Duration::from_secs(2)));},
         "INFO" => {toast.info(msg).set_duration(Some(std::time::Duration::from_secs(5)));}
         "ERRO" => {toast.error(msg).set_closable(true).set_duration(None);}
         "SUCC" => {toast.success(msg).set_duration(Some(std::time::Duration::from_secs(5)));}
@@ -143,6 +144,7 @@ pub fn translate_key(key: &str) -> Option<eframe::egui::Key> {
 }
 
 
+
 pub fn hide_console_window() {
     use std::ptr;
     use winapi::um::wincon::GetConsoleWindow;
@@ -172,20 +174,24 @@ pub fn show_console_window() {
 }
 
 
+
 pub fn exec_bat(path:&String) -> Result<()> {
     let mut current_exe = std::env::current_exe()?;
     current_exe.pop();
-    current_exe.push(path.clone());
+    current_exe.push(path);
 
     let full_path = dunce::canonicalize(current_exe)?;
     let mut bat_dir_path = full_path.clone();
     bat_dir_path.pop();
+
+    let bat_path = full_path.to_str().ok_or(anyhow::anyhow!("Cannot convert path to string"))?;
+
     Command::new("cmd")
         .current_dir(bat_dir_path)
-        .args(&["/C", full_path.to_str().unwrap()])
+        .args(&["/C", bat_path])
         .spawn()?;
 
-    return Ok(());
+    Ok(())
 }
 
 pub fn ordered_map<S>(value: &HashMap<String, String>, serializer: S) -> Result<S::Ok, S::Error>

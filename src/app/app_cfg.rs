@@ -9,6 +9,7 @@ pub struct AppCfg{
     show_setting: bool,
     base_theme: i32,
     custom_theme: theme::Theme,
+    pub show_undo: bool,
 }
 
 impl Default for AppCfg {
@@ -18,6 +19,7 @@ impl Default for AppCfg {
             show_setting: false,
             base_theme: 0,
             custom_theme: theme::MOCHA,
+            show_undo: false,
         }
     }
 }
@@ -105,6 +107,12 @@ impl AppCfg {
                                         AppCfg::color_grid(ui, "输入框背景颜色", &mut self.custom_theme.crust);
                                     });
                                 });
+                        });
+                        ui.end_row();
+
+                        ui.add(egui::Label::new("撤销提示"));
+                        ui.horizontal(|ui| {
+                            ui.checkbox(&mut self.show_undo, "显示");
                         });
                         ui.end_row();
                     });

@@ -1,6 +1,7 @@
 pub mod app_cfg;
 pub mod syntax_highlight;
 pub mod theme;
+pub mod action;
 
 use std::{collections::HashMap, sync::Mutex};
 use eframe::{egui::{self, RichText}, epaint::Color32};
@@ -11,13 +12,15 @@ use serde::{Serialize, Deserialize};
 use crate::data::{data_table::DataTable, data_field::FieldInfo};
 use crate::{utils, error, app::app_cfg::AppCfg};
 
+use self::action::{ActionList, Location};
+
 lazy_static! {
     pub static ref TEMPLETE_MAP_EXPR: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
     pub static ref TEMPLETE_MAP_SUB_FIELD: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct TabInfo{
+pub struct TabInfo{
     tab: String,
     master_table: String,
 }
@@ -81,12 +84,15 @@ pub struct SkillEditorApp {
     field_group: HashMap<String, Vec<FieldInfo>>,
     tab_cfg: Vec<TabConfig>,
     data_table: HashMap<String, DataTable>,
+    data_history: ActionList<HashMap<String, DataTable>, String>,
+    location_history: ActionList<Location, ()>,
+
     templete: HashMap<String, Vec<TempleteInfo>>,
     menus: Vec<MenuInfo>,
 
     // UI 相关数据
-    cur_view: usize,
-    cur_view_group: String,
+    last_location: Location,
+    cur_location: Location,
     show_templete: bool,
     templete_target: String,
     templete_table: String,
@@ -102,6 +108,32 @@ pub struct SkillEditorApp {
 
     cfg: AppCfg,
     toasts: Toasts,
+}
+
+impl SkillEditorApp {
+
+    fn apply_action(&mut self, action: action::DataAction) {
+        self.data_history.apply(action, &mut self.data_table);
+        let action = action::MoveLocationAction{
+            old_location: self.last_location.clone(),
+            new_location: self.cur_location.clone(),
+        };
+    
+        self.last_location = self.cur_location.clone();
+        self.location_history.apply(Box::new(action), &mut self.cur_location);
+    }
+
+    fn undo(&mut self) {
+        let info = self.data_history.undo(&mut self.data_table);
+        if self.cfg.show_undo && info.is_some() {utils::toast(&mut self.toasts, "SHORT", info.unwrap());}
+        self.location_history.undo(&mut self.cur_location);
+    }
+
+    fn redo(&mut self) {
+        let info = self.data_history.redo(&mut self.data_table);
+        if self.cfg.show_undo && info.is_some() {utils::toast(&mut self.toasts, "SHORT", info.unwrap());}
+        self.location_history.redo(&mut self.cur_location);
+    }
 }
 
 impl SkillEditorApp {
@@ -273,7 +305,8 @@ impl SkillEditorApp {
         for one in data {
             if first {
                 first = false;
-                self.cur_view_group = one.group.clone();
+                self.cur_location.cur_view_group = one.group.clone();
+                self.last_location.cur_view_group = one.group.clone();
             }
             self.tab_cfg.push(TabConfig{
                 group: one.group,
@@ -420,6 +453,8 @@ impl SkillEditorApp {
             egui::menu::bar(ui, |ui|{
                 if ui.button("💾保存").clicked(){ self.save_data(true);}
                 if ui.button("🔃重新载入").clicked(){ self.load_config(true);}
+                if ui.button("↩撤销").clicked(){ self.undo();}
+                if ui.button("↪重做").clicked(){ self.redo();}
                 if ui.button("🔧应用配置").clicked(){ self.cfg.show();}
                 if ui.button("🖥控制台").clicked() {
                     if self.console_show {
@@ -432,6 +467,13 @@ impl SkillEditorApp {
                 if ui.input(|i|i.key_pressed(egui::Key::S) && i.modifiers.ctrl) {
                 // if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
                     self.save_data(ui.input(|i|{i.modifiers.shift}));
+                }
+                // 
+                if ui.input(|i|i.key_pressed(egui::Key::Minus) && i.modifiers.ctrl) {
+                    self.undo();
+                }
+                if ui.input(|i|i.key_pressed(egui::Key::PlusEquals) && i.modifiers.ctrl) {
+                    self.redo();
                 }
                 let mut list: Vec<(String, Vec<MenuInfo>)> = Vec::new();
                 for one in &self.menus {
@@ -484,11 +526,11 @@ impl SkillEditorApp {
             egui::menu::bar(ui, |ui|{
                 ui.label("页签分组:");
                 for (group, list) in group_list{
-                    if group == self.cur_view_group {
+                    if group == self.cur_location.cur_view_group {
                         cur_group_list = list;
                     }
-                    if ui.selectable_label(group == self.cur_view_group, &group).clicked() {
-                        self.cur_view_group = group;
+                    if ui.selectable_label(group == self.cur_location.cur_view_group, &group).clicked() {
+                        self.cur_location.cur_view_group = group;
                     }
                 }
             });
@@ -496,37 +538,66 @@ impl SkillEditorApp {
             egui::menu::bar(ui, |ui|{
                 ui.label("页签列表:");
                 for (idx, name) in cur_group_list {
-                    if ui.selectable_label(idx == self.cur_view, &name).clicked() {
-                        self.cur_view = idx;
+                    if ui.selectable_label(idx == self.cur_location.cur_view, &name).clicked() {
+                        self.cur_location.cur_view = idx;
                     }
                 }
             });
         });
     }
 
+    fn get_list_next_idx(list:&HashMap<String, HashMap<String, Vec<(String, i32, i32, bool)>>>, cur:i32) -> i32 {
+        let mut next = -1;
+        let mut found = false;
+        for (_, v) in list {
+            for (_, vv) in v {
+                let mut vec_idx:i32 = 0;
+                for (_, idx, _, _) in vv {
+                    if *idx == cur {
+                        found = true;
+                        break;
+                    }
+                    vec_idx = vec_idx + 1;
+                }
+                if found {
+                    let len = vv.len() as i32;
+                    let diff = if vec_idx + 1 >= len {-1} else{1};
+                    vec_idx = vec_idx + diff;
+                    if vec_idx >= 0 && vec_idx < len {
+                        next = vv.get(vec_idx as usize).unwrap().1;
+                    }
+                    break;
+                }
+            }
+        }
+        if next > cur {next = next - 1;} // idx 比当前大, 减一
+        return next;
+    }
+
     fn draw_view(&mut self, ctx: &egui::Context) {
-        let cfg = self.tab_cfg.get(self.cur_view);
+        let cfg = self.tab_cfg.get(self.cur_location.cur_view as usize);
         if cfg.is_none() {return;}
         let cfg = cfg.unwrap();
         let size = ctx.available_rect().max;
         let unit = cfg.tabs.len() as f32;
         let width = (size.x - unit * 8.0 * 4.0) / unit; // 一个配置包含两个面板, 4条边
 
-        let mut copy_table = String::new();
-        let mut copy_master_val = String::new();
         let mut idx = 0;
         let mut click_table = String::new();
+        let mut ops: Vec<Option<action::DataAction>> = Vec::new();
+        // let mut ops = Vec::new();
         for tab_info in &cfg.tabs {
             idx = idx + 1;
             let show_table = self.data_table.get(&tab_info.tab);
-            if show_table.is_none() {
-                let msg = format!("表格[{}]未找到", tab_info.tab);
-                SkillEditorApp::draw_empty_table(ctx, msg, width, idx);
-                continue;
+            let err_msg = if show_table.is_none(){
+                format!("表格[{}]未找到", tab_info.tab)
             }
-            let const_one = show_table.unwrap();
-            if !const_one.error.is_empty() {
-                SkillEditorApp::draw_empty_table(ctx, const_one.error.clone(), width, idx);
+            else{
+                let const_one = show_table.unwrap();
+                const_one.error.clone()
+            };
+            if !err_msg.is_empty() {
+                SkillEditorApp::draw_empty_table(ctx, err_msg, width, idx);
                 continue;
             }
 
@@ -541,17 +612,6 @@ impl SkillEditorApp {
             }
 
             let data_table = self.data_table.get_mut(&tab_info.tab).unwrap();
-            if !copy_table.is_empty() && master_table == copy_table {
-                println!("copytable master_table[{}] copy[{}] cur[{}]", master_table, copy_master_val, cur_master_val);
-                let copy_list = data_table.get_show_name_list(&data_table.master_field, &copy_master_val, false, &"".to_string());
-                for (_, one) in copy_list {
-                    for (_, two) in one {
-                        for (_, idx, _, _) in two {
-                            data_table.copy_row(idx.clone() as usize, &cur_master_val);
-                        }
-                    }
-                }
-            }
             
             let mut show_all = None;
             let mut show_all_bool = false;
@@ -568,6 +628,25 @@ impl SkillEditorApp {
             if click.is_some() {
                 data_table.cur_row = click.unwrap().clone();
                 click_table = data_table.table_name.clone();
+            }
+            let mut changed = HashMap::new();
+            let link_info = SkillEditorApp::draw_data(ctx, idx, data_table, width * (1.0 - 0.35), &mut changed);
+
+            if link_info.is_some() {
+                let link_info = link_info.unwrap();
+                self.link_table = link_info.table;
+                self.link_src_table = tab_info.tab.clone();
+                self.link_src_field = link_info.field;
+                self.show_link = true;
+                println!("ShowLinkWindow src[{}] field[{}] link[{}]", self.link_src_table, self.link_src_field, self.link_table);
+            }
+
+            let data_table = self.data_table.get(&tab_info.tab).unwrap();
+
+            for (k, v) in changed {
+                let name = data_table.table_name.clone();
+                let row_idx = data_table.cur_row.clone() as usize;
+                ops.push(action::UpdateAction::new(&self.data_table, &name, row_idx, &k, &v));
             }
             if !create_tmp.is_empty() {
                 let field_info = self.field_group.get(&create_tmp);
@@ -586,49 +665,21 @@ impl SkillEditorApp {
             }
 
             if op == 1 {
-                data_table.create_row(&cur_master_val);
+                let data = data_table.create_row(&cur_master_val, 0);
+                ops.push(action::AddAction::new(&self.data_table, &data_table.table_name, data));
             }
+
             if op == 2 {
-                let mut next = -1;
-                let cur = data_table.cur_row;
-                let mut found = false;
-                for (_, v) in &list {
-                    for (_, vv) in v {
-                        let mut vec_idx:i32 = 0;
-                        for (_, idx, _, _) in vv {
-                            if *idx == cur {
-                                found = true;
-                                break;
-                            }
-                            vec_idx = vec_idx + 1;
-                        }
-                        if found {
-                            let len = vv.len() as i32;
-                            let diff = if vec_idx + 1 >= len {-1} else{1};
-                            vec_idx = vec_idx + diff;
-                            if vec_idx >= 0 && vec_idx < len {
-                                next = vv.get(vec_idx as usize).unwrap().1;
-                            }
-                            break;
-                        }
-                    }
-                }
-                if next > cur {next = next - 1;} // idx 比当前大, 减一
-                data_table.delete_cur_row(next);
+                let next = SkillEditorApp::get_list_next_idx(&list, data_table.cur_row);
+                let table_name = data_table.table_name.clone();
+                let cur_row = data_table.cur_row as usize;
+                ops.push(action::DelAction::new(&self.data_table, &table_name, cur_row, next as usize));
             }
             if op == 3 {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("xlsm", &["xlsm", "xlsx"])
                     .pick_file() {
-                        match data_table.import_excel(path, data_table.table_name.clone()){
-                            Ok(_) => {
-                                utils::toast(&mut self.toasts, "SUCC", format!("导入[{}]成功", data_table.table_name));
-                            },
-                            Err(e) => {
-                                let msg = format!("导入失败: {:?}", e);
-                                utils::toast(&mut self.toasts, "ERRO", msg);
-                            }
-                        }
+                        ops.push(action::ImportAction::new(&self.data_table, path, data_table.table_name.clone()));
                     }
             }
 
@@ -636,8 +687,10 @@ impl SkillEditorApp {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter("xlsx", &["xlsx"])
                     .save_file() {
-                        match data_table.export_excel(path, data_table.table_name.clone()){
-                            Ok(_) => {utils::toast(&mut self.toasts, "SUCC", format!("导出[{}]成功", data_table.table_name));},
+                        let table = data_table.table_name.clone();
+                        let data_table = self.data_table.get(&table).unwrap();
+                        match data_table.export_excel(path, table.clone()){
+                            Ok(_) => {utils::toast(&mut self.toasts, "SUCC", format!("导出[{}]成功", table));},
                             Err(e) => {
                                 let msg = format!("导出失败: {:?}", e);
                                 utils::toast(&mut self.toasts, "ERRO", msg);
@@ -647,18 +700,21 @@ impl SkillEditorApp {
             }
 
             if op == 5 {
-                copy_master_val = data_table.get_cur_key();
-                data_table.copy_cur_row(&cur_master_val);
-                copy_table = tab_info.tab.clone();
+                let copy_master_val = data_table.get_cur_key();
+                let data = data_table.copy_cur_row(&cur_master_val).unwrap();
+                let mut copy_table = Vec::new();
+                for one in &cfg.tabs {
+                    if one.master_table == tab_info.tab {
+                        copy_table.push(one.tab.clone());
+                    }
+                }
+                ops.push(action::CopyAction::new(&self.data_table, &data_table.table_name, data, copy_table, copy_master_val));
             }
-            let link_info = SkillEditorApp::draw_data(ctx, idx, data_table, width * (1.0 - 0.35));
-            if link_info.is_some() {
-                let link_info = link_info.unwrap();
-                self.link_table = link_info.table;
-                self.link_src_table = tab_info.tab.clone();
-                self.link_src_field = link_info.field;
-                self.show_link = true;
-                println!("ShowLinkWindow src[{}] field[{}] link[{}]", self.link_src_table, self.link_src_field, self.link_table);
+        }
+
+        for op in ops {
+            if op.is_some() {
+                self.apply_action(op.unwrap());
             }
         }
     }
@@ -753,7 +809,7 @@ impl SkillEditorApp {
         return (ret, op, create_templete);
     }
 
-    fn draw_data(ctx: &egui::Context, idx:i32, data_table: &mut DataTable, width: f32) -> Option<LinkInfo> {
+    fn draw_data(ctx: &egui::Context, idx:i32, data_table: &mut DataTable, width: f32, changed:&mut HashMap<String, String>) -> Option<LinkInfo> {
         let map = data_table.data.get_mut(data_table.cur_row as usize);
         let id1 = format!("detail_panel_{}", idx);
         let ret = egui::SidePanel::left(id1)
@@ -769,7 +825,8 @@ impl SkillEditorApp {
                         .desired_width(f32::INFINITY);
                     ui.add(txt1);
                 });
-                let click = SkillEditorApp::_draw_data(ui, idx.to_string(), &data_table.info, &mut map, data_table.cur, &data_table.detail_search);
+
+                let click = SkillEditorApp::_draw_data(ui, idx.to_string(), &data_table.info, &mut map, data_table.cur, &data_table.detail_search, Some(changed));
                 if click.is_none() {return None;}
                 let idx = click.unwrap();
                 data_table.cur = idx;
@@ -783,7 +840,7 @@ impl SkillEditorApp {
         return ret.inner;
     }
 
-    pub fn _draw_data(ui: &mut egui::Ui, idx:String, field: &Vec<FieldInfo>, mut map: &mut HashMap<String, String>, select_field:i32, search:& String) -> Option<i32> {
+    pub fn _draw_data(ui: &mut egui::Ui, idx:String, field: &Vec<FieldInfo>, map: &mut HashMap<String, String>, select_field:i32, search:& String, changed: Option<&mut HashMap<String, String>>) -> Option<i32> {
         let id2 = format!("detail_desc_panel_{}", idx);
         let mut ret = None;
         let select = field.get(select_field as usize);
@@ -820,6 +877,8 @@ impl SkillEditorApp {
 
         let scroll = egui::ScrollArea::vertical().auto_shrink([false;2]);
         let size = ui.available_size();
+
+        let mut changed_map = HashMap::new();
         scroll.show(ui, |ui|{
             let mut click_flag = false;
             let mut click_idx = 0;
@@ -835,10 +894,24 @@ impl SkillEditorApp {
                         .striped(true);
                     grid.show(ui, |ui|{
                         for (idx, one) in vec {
-                            let f = one.create_ui(&mut map, ui, select_field == idx - 1, search, 0);
+                            let val = map.get(&one.name);
+                            let old = match val {
+                                Some(s) => {s.clone()},
+                                None => {String::new()},
+                            };
+                            let mut new = old.clone();
+                            
+                            let f = one.create_ui(&mut new, ui, select_field == idx - 1, search, 0);
                             if f {
                                 click_flag = true;
                                 click_idx = idx - 1;
+                            }
+                            if old != new {
+                                if changed.is_some() {
+                                    changed_map.insert(one.name.clone(), new.clone());
+                                }else{
+                                    map.insert(one.name.clone(), new);
+                                }
                             }
                             ui.end_row();
                         }
@@ -847,6 +920,13 @@ impl SkillEditorApp {
             }
             if click_flag {
                 ret = Some(click_idx);
+            }
+
+            if changed.is_some() {
+                let ret_map = changed.unwrap();
+                for (k, v) in changed_map {
+                    ret_map.insert(k, v);
+                }
             }
         });
         return ret;
@@ -878,7 +958,7 @@ impl SkillEditorApp {
         .default_width(280.0)
         .show(ctx, |ui| {
             ui.heading(title);
-            click = SkillEditorApp::_draw_data(ui, "LinkWindow".to_string(), field, map, select_field, &String::new())
+            click = SkillEditorApp::_draw_data(ui, "LinkWindow".to_string(), field, map, select_field, &String::new(), None);
         });
         return (state, click);
     }
@@ -931,10 +1011,11 @@ impl SkillEditorApp {
                 if !new {return;}
                 if data_table.is_none(){return;}
                 let data_table = data_table.unwrap();
-                data_table.create_row(&String::new());
-                let idx = data_table.data.len()-1;
-                let new_row = data_table.data.get_mut(idx).unwrap();
-                new_row.insert(data_table.key_name.clone(), link_val);
+                let mut data = data_table.create_row(&String::new(), 0);
+                data.insert(data_table.key_name.clone(), link_val);
+                let name = data_table.table_name.clone();
+                let action = action::AddAction::new(&self.data_table, &name, data);
+                if action.is_some() {self.apply_action(action.unwrap());}
             }
         }
     }
@@ -964,31 +1045,11 @@ impl SkillEditorApp {
         .show(ctx, |ui| {
             let field = self.field_group.get(&self.templete_table);
             if field.is_some() {
-                if ui.button("创建").clicked() {
-                    create = true;
-                    let cur_master_val = String::new();
-                    let data_table = self.data_table.get_mut(&self.templete_target).unwrap();
-                    data_table.create_row(&cur_master_val);
-                    let idx = data_table.data.len() - 1;
-                    let new_row = data_table.data.get_mut(idx).unwrap();
-                    let mut data:HashMap<String, String> = HashMap::new();
-                    for (k, v) in &self.templete_content {
-                        let mut val = v.clone();
-                        for (kk, vv) in &self.templete_data {
-                            let templete_key = format!("%{}%", kk);
-                            val = val.replace(templete_key.as_str(), vv.as_str());
-                        }
-                        data.insert(k.clone(), val);
-                    }
-                    for (k, v) in data{
-                        new_row.insert(k, v);
-                    }
-                }
-
-
+                create = ui.button("创建").clicked();
+                
                 let field = field.unwrap();
-                let click = SkillEditorApp::_draw_data(ui, "TempleteWindow".to_string(), field, &mut self.templete_data, self.templete_data_idx, &String::new());
-
+                let click = SkillEditorApp::_draw_data(ui, "TempleteWindow".to_string(), field, &mut self.templete_data, self.templete_data_idx, &String::new(), None);
+                
                 if click.is_some(){ self.templete_data_idx = click.unwrap(); }
             }
             else{
@@ -997,7 +1058,23 @@ impl SkillEditorApp {
             }
         });
         if create {
-            self.show_templete = false;
+            let cur_master_val = String::new();
+            let data_table = self.data_table.get_mut(&self.templete_target).unwrap();
+            let mut data = data_table.create_row(&cur_master_val, 0);
+            for (k, v) in &self.templete_content {
+                let mut val = v.clone();
+                for (kk, vv) in &self.templete_data {
+                    let templete_key = format!("%{}%", kk);
+                    val = val.replace(templete_key.as_str(), vv.as_str());
+                }
+                data.insert(k.clone(), val);
+            }
+            let name = data_table.table_name.clone();
+            let action = action::AddAction::new(&self.data_table, &name, data);
+            if action.is_some() {
+                self.apply_action(action.unwrap());
+                self.show_templete = false;
+            }
         }
     }
 }
@@ -1010,8 +1087,10 @@ impl Default for SkillEditorApp {
             field_group: HashMap::new(),
             tab_cfg: Vec::new(),
             data_table: HashMap::new(),
-            cur_view: 0,
-            cur_view_group: String::new(),
+            data_history: action::ActionList::new(),
+            location_history: action::ActionList::new(),
+            last_location: Location::default(),
+            cur_location: Location::default(),
             show_templete: false,
             templete: HashMap::new(),
             templete_target: String::new(),
