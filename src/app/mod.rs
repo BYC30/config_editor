@@ -108,6 +108,9 @@ pub struct SkillEditorApp {
 
     cfg: AppCfg,
     toasts: Toasts,
+
+    hotkey_redo: bool,
+    hotkey_undo: bool,
 }
 
 impl SkillEditorApp {
@@ -451,10 +454,10 @@ impl SkillEditorApp {
     fn draw_menu(&mut self, ctx: &egui::Context){
         egui::TopBottomPanel::top("menu").show(ctx, |ui|{
             egui::menu::bar(ui, |ui|{
-                if ui.button("💾保存").clicked(){ self.save_data(true);}
+                if ui.button("💾保存(S)").clicked(){ self.save_data(true);}
                 if ui.button("🔃重新载入").clicked(){ self.load_config(true);}
-                if ui.button("↩撤销").clicked(){ self.undo();}
-                if ui.button("↪重做").clicked(){ self.redo();}
+                if ui.button("↩撤销(Z)").clicked() || self.hotkey_undo { self.undo();}
+                if ui.button("↪重做(Y)").clicked() || self.hotkey_redo { self.redo();}
                 if ui.button("🔧应用配置").clicked(){ self.cfg.show();}
                 if ui.button("🖥控制台").clicked() {
                     if self.console_show {
@@ -467,13 +470,6 @@ impl SkillEditorApp {
                 if ui.input(|i|i.key_pressed(egui::Key::S) && i.modifiers.ctrl) {
                 // if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
                     self.save_data(ui.input(|i|{i.modifiers.shift}));
-                }
-                // 
-                if ui.input(|i|i.key_pressed(egui::Key::Minus) && i.modifiers.ctrl) {
-                    self.undo();
-                }
-                if ui.input(|i|i.key_pressed(egui::Key::PlusEquals) && i.modifiers.ctrl) {
-                    self.redo();
                 }
                 let mut list: Vec<(String, Vec<MenuInfo>)> = Vec::new();
                 for one in &self.menus {
@@ -1106,12 +1102,57 @@ impl Default for SkillEditorApp {
             console_show: false,
             cfg: AppCfg::default(),
             toasts: Toasts::default().with_anchor(egui_notify::Anchor::BottomRight),
+            hotkey_redo: false,
+            hotkey_undo: false,
         }
     }
 }
 
+fn match_hotkey_event(event: &egui::Event) -> (bool, i32) {
+    match event {
+        egui::Event::Key {key,pressed,repeat, modifiers} => {
+            if !*pressed {return (false, 0);}
+            if *repeat {return (false, 0);}
+            if modifiers.alt || modifiers.shift {return (false, 0);}
+            if *key != egui::Key::Z && *key != egui::Key::Y {return (false, 0);}
+            let ret = match *key {
+                egui::Key::Z => 1,
+                egui::Key::Y => 2,
+                _ => 0,
+            };
+            return (true, ret);
+        }
+        _ => {return (false, 0);}
+    }
+}
+
+fn disable_default_hotkey(ctx: &egui::Context) -> (bool, bool) {
+    let mut redo = false;
+    let mut undo = false;
+    ctx.input_mut(|i|{
+        let mut idx = 0;
+        let mut remove_vec = Vec::new();
+        for one in &i.events {
+            let (remove, ret) = match_hotkey_event(one);
+            if remove {
+                if ret == 1 {undo = true;}
+                if ret == 2 {redo = true;}
+                remove_vec.push(idx);
+            }else{
+                idx = idx + 1;
+            }
+        }
+        for one in remove_vec {
+            i.events.remove(one);
+        }
+    });
+    return (undo, redo);
+}
+
 impl eframe::App for SkillEditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        (self.hotkey_undo, self.hotkey_redo) = disable_default_hotkey(ctx);
+
         self.load_config(false);
         self.draw_menu(ctx);
         self.draw_view(ctx);
