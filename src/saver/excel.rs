@@ -71,11 +71,7 @@ impl DataSaver for ExcelSaver  {
         table_name: &String,
         path: PathBuf,
     ) -> Result<()>{
-        let book = umya_spreadsheet::reader::xlsx::read(path.clone());
-        let mut book = match book {
-            Ok(b) => b,
-            Err(_e) => {umya_spreadsheet::new_file()}
-        };
+        let mut book = utils::read_or_create_excel(&path);
         
         let ret = book.get_sheet_by_name_mut(table_name);
         let sheet = match ret {

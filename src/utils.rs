@@ -5,7 +5,7 @@ use calamine::{DataType, Range};
 use itertools::Itertools;
 
 use serde_json::json;
-use umya_spreadsheet::Worksheet;
+use umya_spreadsheet::{Worksheet, Spreadsheet};
 
 use crate::{data::data_field::EFieldType, error};
 
@@ -316,4 +316,14 @@ where
     println!("ret: {}", ret);
     let ret:T = serde_json::from_value(ret)?;
     return Ok(ret);
+}
+
+pub fn read_or_create_excel(path:&PathBuf) -> Spreadsheet{
+    let book = umya_spreadsheet::reader::xlsx::read(path.clone());
+    let book = match book {
+        Ok(b) => b,
+        Err(_e) => {umya_spreadsheet::new_file()}
+    };
+
+    return book;
 }
