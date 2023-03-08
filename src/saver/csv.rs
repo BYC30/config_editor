@@ -16,13 +16,14 @@ impl DataSaver for CsvSaver  {
         key: &String,
         _table_name: &String,
         path: PathBuf,
+        all: bool,
     ) -> Result<()>{
         let out_type = "csv";
         let mut content = String::new();
         // 表头
         let mut header:Vec<Vec<String>> = vec![Vec::new(), Vec::new()];
         for one in info {
-            if !one.export {continue;}
+            if !one.export && !all {continue;}
 
             if one.header.len() > 0 {
                 let mut idx = 0;
@@ -71,7 +72,7 @@ impl DataSaver for CsvSaver  {
         for row in data.iter().sorted_by_key(|a|{utils::map_get_i32(*a, key)}) {
             let mut one_line = Vec::new();
             for one in info {
-                if !one.export {continue;}
+                if !one.export && !all {continue;}
                 let v = match row.get(&one.name){
                     Some(s) => {s.clone()},
                     None => {String::new()},

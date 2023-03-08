@@ -12,6 +12,7 @@ pub trait DataSaver {
         key: &String,
         table_name: &String,
         writer: PathBuf,
+        all: bool,
     ) -> Result<()>;
 }
 

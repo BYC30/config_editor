@@ -115,10 +115,10 @@ impl DataTable {
         if !dir.exists() { std::fs::create_dir_all(dir.clone())?; }
 
         match out_type.as_str() {
-            "csv" => {saver::csv::CsvSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path)?},
-            "scsv" => {saver::scsv::ScsvSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path)?},
-            "json" => {saver::json::JsonSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path)?},
-            "excel" => {saver::excel::ExcelSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path)?},
+            "csv" => {saver::csv::CsvSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path, false)?},
+            "scsv" => {saver::scsv::ScsvSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path, false)?},
+            "json" => {saver::json::JsonSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path, false)?},
+            "excel" => {saver::excel::ExcelSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path, false)?},
             _ => {bail!(error::AppError::ExportTypeError(out_type.clone()));}
         };
         Ok(())
@@ -187,11 +187,9 @@ impl DataTable {
         let list = self.get_show_name_list(&String::new(), &String::new(), true, &String::new());
         for (group, one) in list.iter().sorted_by_key(|a|{a.0}) {
             for (sub_group, two) in one.iter().sorted_by_key(|a|{a.0}) {
-                let mut js = json!([]);
-                let arr = js.as_array_mut().unwrap();
+                let mut arr = Vec::new();
                 for (_name, idx, _key_num, _dup) in two {
-                    let mut obj = json!({});
-                    let obj_map = obj.as_object_mut().unwrap();
+                    let mut obj_map = HashMap::new();
                     let row = self.data.get(*idx as usize).unwrap();
                     for one in &self.info {
                         let v = match row.get(&one.name){
@@ -199,16 +197,15 @@ impl DataTable {
                             None => {String::new()},
                         };
                         
-                        let tmp = v.trim();
-                        obj_map.insert(one.name.clone(), serde_json::Value::String(tmp.to_string()));
+                        obj_map.insert(one.name.clone(), v.trim().to_string());
                     }
-                    arr.push(obj);
+                    arr.push(obj_map);
                 }
                 let mut p = path.clone();
-                p.push(format!("{}_{}.json", group, sub_group));
+                p.push(format!("{}_{}.xlsx", group, sub_group));
                 println!("save[{:?}] to file", p);
-                
-                fs::write(p, serde_json::to_string_pretty(arr)?)?;
+                saver::excel::ExcelSaver::output(&self.info, &arr, &self.key_name, &self.table_name, p, true)?;
+                // fs::write(p, serde_json::to_string_pretty(arr)?)?;
             }
         }
 
@@ -221,8 +218,26 @@ impl DataTable {
             let entry = entry?;
             let p = entry.path();
             if p.is_dir() {continue;}
-            let s = std::fs::read_to_string(p)?;
-            let data: Vec<HashMap<String, String>> = serde_json::from_str(&s)?;
+            let ext = p.extension();
+            if ext.is_none() {continue;}
+            let ext = ext.unwrap();
+            let data:Vec<HashMap<String, String>> = if ext == "json" {
+                let s = std::fs::read_to_string(p)?;
+                serde_json::from_str(&s)?
+            }else if ext == "xlsx" {
+                let name = p.file_name();
+                if name.is_none() {continue;}
+                let name = name.unwrap().to_str();
+                if name.is_none() {continue;}
+                let name = name.unwrap();
+                if name.starts_with("~$") {continue;}
+                utils::load_excel2map(&p.to_path_buf(), &self.table_name)?
+            }
+            else{continue;};
+
+            if ext == "xlxs" {
+                println!("load excel sheet: {:?}", data);
+            }
             for mut one in data {
                 for field in &self.info {
                     if one.contains_key(&field.name) {continue;}

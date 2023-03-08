@@ -6,6 +6,7 @@ use itertools::Itertools;
 
 use serde_json::json;
 use umya_spreadsheet::{Worksheet, Spreadsheet};
+use walkdir::WalkDir;
 
 use crate::{data::data_field::EFieldType, error};
 
@@ -252,9 +253,7 @@ pub fn parse_data_type(field_type:&String) -> Result<(bool, bool, EFieldType, St
     return Ok((is_key, is_array, data_type, suffix))
 }
 
-pub fn load_one_cell(data:&String, data_type:&String) -> Result<serde_json::Value>{
-    let (_, is_array, data_type, _) = parse_data_type(&data_type)?;
-    if is_array {bail!("json 解析")}
+fn parse_one_data(data:&String, data_type:&EFieldType) -> Result<serde_json::Value>{
     let ret = match data_type {
         EFieldType::Bool => {
             json!(data.to_lowercase() == "true")
@@ -271,12 +270,37 @@ pub fn load_one_cell(data:&String, data_type:&String) -> Result<serde_json::Valu
             json!(data)
         },
         EFieldType::Table => {
-            bail!("json 解析");
+            if data.is_empty() {
+                json!({})
+            }
+            else{
+                let lua = mlua::Lua::new();
+                let table: mlua::Table = lua.load(data).eval()?;
+                let json = serde_json::to_string(&table)?;
+                serde_json::from_str(&json)?
+            }
         },
     };
     return Ok(ret);
 }
 
+pub fn load_one_cell(data:&String, data_type:&String) -> Result<serde_json::Value>{
+    let (_, is_array, data_type, _) = parse_data_type(&data_type)?;
+    if is_array {
+        let mut ret = json!([]);
+        if data.is_empty() {return Ok(ret);}
+        let list = ret.as_array_mut().unwrap();
+        let arr:Vec<&str> = data.split(";").collect();
+        for v in arr {
+            let v = v.trim();
+            let v = parse_one_data(&v.to_string(), &data_type)?;
+            list.push(v);
+        }
+        return Ok(ret);
+    }else{
+        return parse_one_data(&data, &data_type);
+    }
+}
 
 pub fn load_excel_sheet<T>(
     path:&PathBuf,
@@ -305,18 +329,83 @@ where
             let value = get_cell_value(&sheet, c, r);
             if key.is_empty() {continue;}
 
-            let val = match load_one_cell(&value, &data_type) {
-                Ok(v) => {v},
-                Err(_) => {serde_json::from_str(&value)?},
-            };
+            let val = load_one_cell(&value, &data_type)?;
+            // let val = match load_one_cell(&value, &data_type) {
+            //     Ok(v) => {v},
+            //     Err(_) => {serde_json::from_str(&value)?},
+            // };
             map.insert(key, val);
         }
         list.push(one);
     }
-    println!("ret: {}", ret);
     let ret:T = serde_json::from_value(ret)?;
     return Ok(ret);
 }
+
+pub fn load_dir_excel_cfg<T>(
+    p: &str,
+    table_name:&str,
+) -> Result<Vec<T>>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let mut path = std::env::current_exe()?;
+    path.pop();
+    path.push(p);
+    let mut ret = Vec::new();
+    if !path.exists() {return Ok(ret);}
+
+    for entry in WalkDir::new(path) {
+        let entry = entry?;
+        let p = entry.path();
+        if p.is_dir() {continue;}
+        let ext = p.extension();
+        if ext.is_none() {continue;}
+        let ext = ext.unwrap();
+        if ext != "xlsx" {continue;}
+        let name = p.file_name();
+        if name.is_none() {continue;}
+        let name = name.unwrap().to_str();
+        if name.is_none() {continue;}
+        let name = name.unwrap();
+        if name.starts_with("~$") {continue;}
+        
+        let mut data: Vec<T> = load_excel_sheet(&p.to_path_buf(), table_name)?;
+        ret.append(&mut data);
+    }
+    return Ok(ret);
+}
+
+pub fn load_excel2map(
+    path:&PathBuf,
+    sheet_name:&str
+) -> Result<Vec<HashMap<String, String>>>
+{
+    println!("load_excel2map: {:?}", path);
+    let book = umya_spreadsheet::reader::xlsx::read(path.clone())?;
+    let ret = book.get_sheet_by_name(sheet_name);
+    let sheet = match ret {
+        Ok(s) => s,
+        Err(e) => {return Err(anyhow::anyhow!(format!("get_sheet_by_name failed: {}", e)));}
+    };
+
+    let (col, row) = sheet.get_highest_column_and_row();
+    let mut list = Vec::new();
+    for r in 4..row + 1 {
+        let mut map = HashMap::new();
+        for c in 1..col + 1 {
+            // let data_type = get_cell_value(&sheet, c, 2);
+            let key = get_cell_value(&sheet, c, 3);
+            let value = get_cell_value(&sheet, c, r);
+            if key.is_empty() {continue;}
+            map.insert(key, value);
+        }
+        list.push(map);
+    }
+    println!("ret: {:?}", list);
+    return Ok(list);
+}
+
 
 pub fn read_or_create_excel(path:&PathBuf) -> Spreadsheet{
     let book = umya_spreadsheet::reader::xlsx::read(path.clone());

@@ -57,6 +57,7 @@ impl DataSaver for JsonSaver  {
         key: &String,
         _table_name: &String,
         path: PathBuf,
+        all: bool,
     ) -> Result<()>{
         let mut total = json!([]);
         let list = total.as_array_mut().unwrap();
@@ -68,7 +69,7 @@ impl DataSaver for JsonSaver  {
             let map = one.as_object_mut().unwrap();
 
             for field in info {
-                if !field.export {continue;}
+                if !field.export && !all {continue;}
                 let v = match row.get(&field.name){
                     Some(s) => {s.clone()},
                     None => {String::new()},

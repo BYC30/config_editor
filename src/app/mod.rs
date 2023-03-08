@@ -10,6 +10,7 @@ use anyhow::{Result, bail};
 use egui_notify::Toasts;
 use itertools::Itertools;
 use serde::{Serialize, Deserialize};
+use walkdir::WalkDir;
 use crate::data::{data_table::DataTable, data_field::FieldInfo};
 use crate::{utils, error, app::app_cfg::AppCfg};
 
@@ -215,7 +216,7 @@ impl SkillEditorApp {
         }
     }
 
-    fn load_menu_config(&mut self, path:&PathBuf) -> Result<()> {
+    fn load_menu_config(&mut self) -> Result<()> {
         #[derive(Serialize, Deserialize)]
         struct MenuConfig {
             menu: String,
@@ -224,7 +225,7 @@ impl SkillEditorApp {
             hotkey: String,
         }
 
-        let data: Vec<MenuConfig> = utils::load_excel_sheet(&path, "editor_menu")?;
+        let data: Vec<MenuConfig> = utils::load_dir_excel_cfg("save_data/editor_menu", "editor_menu")?;
 
         for one in data {
             let hotkey = utils::translate_key(&one.hotkey);
@@ -240,7 +241,7 @@ impl SkillEditorApp {
         return Ok(()); 
     }
 
-    fn load_field_config(&mut self, path:&PathBuf) -> Result<()> {
+    fn load_field_config(&mut self) -> Result<()> {
         #[derive(Serialize, Deserialize, Debug)]
         struct FieldConfig {
             table_key: String,
@@ -257,7 +258,7 @@ impl SkillEditorApp {
             output_header: Vec<String>,
         }
 
-        let data: Vec<FieldConfig> = utils::load_excel_sheet(&path, "editor_field")?;
+        let data: Vec<FieldConfig> = utils::load_dir_excel_cfg("save_data/editor_field", "editor_field")?;
 
         for one in data {
             let field = FieldInfo::parse(one.name, one.title, one.desc, one.group, one.val_type, one.editor_type, one.opt, one.default, one.link_table, one.export, one.output_header)?;
@@ -273,7 +274,7 @@ impl SkillEditorApp {
         return Ok(());
     }
 
-    fn load_tab_config(&mut self, path:&PathBuf) -> Result<()>{
+    fn load_tab_config(&mut self) -> Result<()>{
         #[derive(Serialize, Deserialize)]
         struct TableConfig {
             table_key: String,
@@ -298,7 +299,7 @@ impl SkillEditorApp {
             tabs: Vec<TabInfo>,
         }
 
-        let data: Vec<TabCfg> = utils::load_excel_sheet(&path, "editor_tab")?;
+        let data: Vec<TabCfg> = utils::load_dir_excel_cfg("save_data/editor_tab", "editor_tab")?;
 
         let mut first = true;
         for one in data {
@@ -314,7 +315,7 @@ impl SkillEditorApp {
             });
         }
 
-        let data: Vec<TableConfig> = utils::load_excel_sheet(&path, "editor_table")?;
+        let data: Vec<TableConfig> = utils::load_dir_excel_cfg("save_data/editor_table", "editor_table")?;
 
         for one in data {
             let mut info = Vec::new();
@@ -350,7 +351,7 @@ impl SkillEditorApp {
         return Ok(());
     }
 
-    fn load_templete(&mut self, path:&PathBuf) -> Result<()> {
+    fn load_templete(&mut self) -> Result<()> {
         #[derive(Serialize, Deserialize)]
         struct TempleteConfig {
             table_key: String,
@@ -366,7 +367,7 @@ impl SkillEditorApp {
         let mut templete_sub_field_map = TEMPLETE_MAP_SUB_FIELD.lock().unwrap();
         templete_sub_field_map.clear();
 
-        let data: Vec<TempleteConfig> = utils::load_excel_sheet(&path, "editor_templete")?;
+        let data: Vec<TempleteConfig> = utils::load_dir_excel_cfg("save_data/editor_templete", "editor_templete")?;
 
         for one in data {
             if !self.templete.contains_key(&one.table_key) {
@@ -404,13 +405,11 @@ impl SkillEditorApp {
     }
 
     pub fn create_default_config(&self) -> Result<()> {
-        write_cfg!(self, "app_cfg.xlsx");
-        write_cfg!(self, "save_data/editor_field/编辑器_编辑器配置.json");
-        write_cfg!(self, "save_data/editor_tab/编辑器_编辑器配置.json");
-        write_cfg!(self, "save_data/editor_table/编辑器_编辑器配置.json");
-        write_cfg!(self, "save_data/editor_templete/编辑器_编辑器配置.json");
-        write_cfg!(self, "save_data/editor_templete/表达式模板_客户端.json");
-
+        write_cfg!(self, "save_data/editor_field/编辑器_编辑器配置.xlsx");
+        write_cfg!(self, "save_data/editor_tab/编辑器_编辑器配置.xlsx");
+        write_cfg!(self, "save_data/editor_table/编辑器_编辑器配置.xlsx");
+        write_cfg!(self, "save_data/editor_templete/编辑器_编辑器配置.xlsx");
+        write_cfg!(self, "save_data/editor_templete/表达式模板_客户端.xlsx");
         Ok(())
     }
 
@@ -423,19 +422,19 @@ impl SkillEditorApp {
 
         let mut path = std::env::current_exe()?;
         path.pop();
-        path.push("app_cfg.xlsx");
+        path.push("save_data");
         if !path.exists() {
             self.create_default_config()?;
         }
 
         println!("读取字段配置");
-        self.load_field_config(&path)?;
+        self.load_field_config()?;
         println!("读取模板配置");
-        self.load_templete(&path)?;
+        self.load_templete()?;
         println!("读取页签配置");
-        self.load_tab_config(&path)?;
+        self.load_tab_config()?;
         println!("读取菜单配置");
-        self.load_menu_config(&path)?;
+        self.load_menu_config()?;
         println!("读取数据");
         self.load_data()?;
         return Ok(());
