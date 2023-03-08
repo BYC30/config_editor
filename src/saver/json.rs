@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf, fs};
 use anyhow::Result;
 use itertools::Itertools;
 use serde_json::json;
@@ -11,7 +11,7 @@ use super::DataSaver;
 pub struct JsonSaver {}
 
 impl JsonSaver {
-    fn parse_one(field:&FieldInfo, data:&str) -> Result<serde_json::Value> {
+    pub fn parse_one(field:&FieldInfo, data:&str) -> Result<serde_json::Value> {
         match field.val_type {
             EFieldType::Bool => {return Ok(serde_json::Value::Bool(data.to_lowercase() == "true"))},
             EFieldType::Number => {
@@ -29,7 +29,7 @@ impl JsonSaver {
         }
     }
 
-    fn get_one(field:&FieldInfo, data:&String) -> Result<serde_json::Value> {
+    pub fn get_one(field:&FieldInfo, data:&String) -> Result<serde_json::Value> {
         if field.is_array {
             let mut ret = json!([]);
             let list = ret.as_array_mut().unwrap();
@@ -51,7 +51,13 @@ impl JsonSaver {
 }
 
 impl DataSaver for JsonSaver  {
-    fn output(info:&Vec<FieldInfo>, data:&Vec<HashMap<String, String>>, key:&String) -> Result<String> {
+    fn output(
+        info: &Vec<FieldInfo>, 
+        data: &Vec<HashMap<String, String>>, 
+        key: &String,
+        _table_name: &String,
+        path: PathBuf,
+    ) -> Result<()>{
         let mut total = json!([]);
         let list = total.as_array_mut().unwrap();
         // 表头
@@ -74,6 +80,8 @@ impl DataSaver for JsonSaver  {
             list.push(one);
         }
 
-        return Ok(serde_json::to_string_pretty(&total)?);
+        let str = serde_json::to_string_pretty(&total)?;
+        fs::write(path, str)?;
+        Ok(())
     }
 }

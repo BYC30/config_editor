@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf, fs};
 use anyhow::Result;
 use itertools::Itertools;
 
@@ -10,7 +10,13 @@ use super::DataSaver;
 pub struct ScsvSaver {}
 
 impl DataSaver for ScsvSaver  {
-    fn output(info:&Vec<FieldInfo>, data:&Vec<HashMap<String, String>>, key:&String) -> Result<String> {
+    fn output(
+        info: &Vec<FieldInfo>, 
+        data: &Vec<HashMap<String, String>>, 
+        key: &String,
+        _table_name: &String,
+        path: PathBuf,
+    ) -> Result<()>{
         let out_type = "scsv";
         let mut content = String::new();
         // 表头
@@ -97,6 +103,7 @@ impl DataSaver for ScsvSaver  {
             content.push_str("\r\n");
         }
 
-        Ok(content)
+        fs::write(path, content)?;
+        Ok(())
     }
 }

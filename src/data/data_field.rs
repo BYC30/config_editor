@@ -60,35 +60,8 @@ pub struct FieldInfo {
 
 impl FieldInfo {
     pub fn parse(name:String, title:String, desc:String, group:String, field_type:String, editor_type:String, opt_str:Vec<String>,default:String,link_table:String,export:bool, header:Vec<String>) -> Result<FieldInfo> {
-        let mut tmp = field_type.clone();
-        let mut prefix = String::new();
-        let arr:Vec<&str> = tmp.split("<").collect();
-        if arr.len() == 2 {
-            prefix = arr[0].to_string();
-            tmp = arr[1].to_string();
-        }
-        else{
-            tmp = arr[0].to_string();
-        }
-        let mut suffix = String::new();
-        let arr:Vec<&str> = tmp.split(">").collect();
-        let field = arr[0];
-        let data_type = match field {
-            "B" => EFieldType::Bool,
-            "N" => EFieldType::Number,
-            "S" => EFieldType::Str,
-            "E" => EFieldType::Expr,
-            "M" => EFieldType::Table,
-            _ => {bail!(error::AppError::FieldTypeNotSupport(field.to_string()));}
-        };
-        if arr.len() == 2 {
-            suffix = arr[1].to_string();
-        }
-        
-        let mut is_key = false;
-        if prefix == "K" {is_key = true;}
-        let mut is_array = false;
-        if prefix == "A" {is_array = true;}
+        let (is_key, is_array, data_type, suffix) = utils::parse_data_type(&field_type)?;
+
         let editor_type = match editor_type.as_str() {
             "Const" => EEditorType::Const,
             "Text" => EEditorType::Text,

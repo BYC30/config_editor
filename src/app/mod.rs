@@ -3,7 +3,7 @@ pub mod syntax_highlight;
 pub mod theme;
 pub mod action;
 
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, sync::Mutex, path::PathBuf};
 use eframe::{egui::{self, RichText}, epaint::Color32};
 use anyhow::{Result, bail};
 use egui_notify::Toasts;
@@ -81,14 +81,14 @@ impl MenuInfo {
 pub struct SkillEditorApp {
     inited: bool,
 
-    field_group: HashMap<String, Vec<FieldInfo>>,
     tab_cfg: Vec<TabConfig>,
-    data_table: HashMap<String, DataTable>,
-    data_history: ActionList<HashMap<String, DataTable>, String>,
-    location_history: ActionList<Location, ()>,
-
+    field_group: HashMap<String, Vec<FieldInfo>>,
     templete: HashMap<String, Vec<TempleteInfo>>,
     menus: Vec<MenuInfo>,
+    data_table: HashMap<String, DataTable>,
+
+    data_history: ActionList<HashMap<String, DataTable>, String>,
+    location_history: ActionList<Location, ()>,
 
     // UI 相关数据
     last_location: Location,
@@ -202,7 +202,7 @@ impl SkillEditorApp {
         }
     }
 
-    fn load_menu_config(&mut self) -> Result<()> {
+    fn load_menu_config(&mut self, path:&PathBuf) -> Result<()> {
         #[derive(Serialize, Deserialize)]
         struct MenuConfig {
             menu: String,
@@ -211,13 +211,7 @@ impl SkillEditorApp {
             hotkey: String,
         }
 
-        let mut path = std::env::current_exe()?;
-        path.pop();
-        path.push("config");
-        path.push("menu.json");
-
-        let s = std::fs::read_to_string(path)?;
-        let data: Vec<MenuConfig> = serde_json::from_str(&s)?;
+        let data: Vec<MenuConfig> = utils::load_excel_sheet(&path, "editor_menu")?;
 
         for one in data {
             let hotkey = utils::translate_key(&one.hotkey);
@@ -233,8 +227,8 @@ impl SkillEditorApp {
         return Ok(()); 
     }
 
-    fn load_field_config(&mut self) -> Result<()> {
-        #[derive(Serialize, Deserialize)]
+    fn load_field_config(&mut self, path:&PathBuf) -> Result<()> {
+        #[derive(Serialize, Deserialize, Debug)]
         struct FieldConfig {
             table_key: String,
             name: String,
@@ -250,13 +244,7 @@ impl SkillEditorApp {
             output_header: Vec<String>,
         }
 
-        let mut path = std::env::current_exe()?;
-        path.pop();
-        path.push("config");
-        path.push("field.json");
-        
-        let s = std::fs::read_to_string(path)?;
-        let data: Vec<FieldConfig> = serde_json::from_str(&s)?;
+        let data: Vec<FieldConfig> = utils::load_excel_sheet(&path, "editor_field")?;
 
         for one in data {
             let field = FieldInfo::parse(one.name, one.title, one.desc, one.group, one.val_type, one.editor_type, one.opt, one.default, one.link_table, one.export, one.output_header)?;
@@ -272,7 +260,7 @@ impl SkillEditorApp {
         return Ok(());
     }
 
-    fn load_tab_config(&mut self) -> Result<()>{
+    fn load_tab_config(&mut self, path:&PathBuf) -> Result<()>{
         #[derive(Serialize, Deserialize)]
         struct TableConfig {
             table_key: String,
@@ -297,13 +285,8 @@ impl SkillEditorApp {
             tabs: Vec<TabInfo>,
         }
 
-        let mut path = std::env::current_exe()?;
-        path.pop();
-        path.push("config");
+        let data: Vec<TabCfg> = utils::load_excel_sheet(&path, "editor_tab")?;
 
-        path.push("tab.json");
-        let s = std::fs::read_to_string(path.clone())?;
-        let data: Vec<TabCfg> = serde_json::from_str(&s)?;
         let mut first = true;
         for one in data {
             if first {
@@ -318,10 +301,7 @@ impl SkillEditorApp {
             });
         }
 
-        path.pop();
-        path.push("table.json");
-        let s = std::fs::read_to_string(path)?;
-        let data: Vec<TableConfig> = serde_json::from_str(&s)?;
+        let data: Vec<TableConfig> = utils::load_excel_sheet(&path, "editor_table")?;
 
         for one in data {
             let mut info = Vec::new();
@@ -357,7 +337,7 @@ impl SkillEditorApp {
         return Ok(());
     }
 
-    fn load_templete(&mut self) -> Result<()> {
+    fn load_templete(&mut self, path:&PathBuf) -> Result<()> {
         #[derive(Serialize, Deserialize)]
         struct TempleteConfig {
             table_key: String,
@@ -372,13 +352,8 @@ impl SkillEditorApp {
         templete_map.clear();
         let mut templete_sub_field_map = TEMPLETE_MAP_SUB_FIELD.lock().unwrap();
         templete_sub_field_map.clear();
-        let mut path = std::env::current_exe()?;
-        path.pop();
-        path.push("config");
-        path.push("templete.json");
 
-        let s = std::fs::read_to_string(path)?;
-        let data: Vec<TempleteConfig> = serde_json::from_str(&s)?;
+        let data: Vec<TempleteConfig> = utils::load_excel_sheet(&path, "editor_templete")?;
 
         for one in data {
             if !self.templete.contains_key(&one.table_key) {
@@ -422,14 +397,18 @@ impl SkillEditorApp {
         self.templete.clear();
         self.menus.clear();
 
+        let mut path = std::env::current_exe()?;
+        path.pop();
+        path.push("app_cfg.xlsx");
+
         println!("读取字段配置");
-        self.load_field_config()?;
+        self.load_field_config(&path)?;
         println!("读取模板配置");
-        self.load_templete()?;
+        self.load_templete(&path)?;
         println!("读取页签配置");
-        self.load_tab_config()?;
+        self.load_tab_config(&path)?;
         println!("读取菜单配置");
-        self.load_menu_config()?;
+        self.load_menu_config(&path)?;
         println!("读取数据");
         self.load_data()?;
         return Ok(());

@@ -1,8 +1,13 @@
-use std::{collections::HashMap, process::Command};
+use std::{collections::HashMap, process::Command, path::PathBuf};
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use calamine::{DataType, Range};
 use itertools::Itertools;
+
+use serde_json::json;
+use umya_spreadsheet::Worksheet;
+
+use crate::{data::data_field::EFieldType, error};
 
 pub fn get_cell(range: &Range<DataType>, x: u32, y: u32) -> String {
     let one = range.get_value((x, y));
@@ -200,4 +205,115 @@ where
 {
     let ordered: std::collections::BTreeMap<_, _> = value.iter().collect();
     serde::Serialize::serialize(&ordered, serializer)
+}
+
+fn get_cell_value(sheet:&Worksheet, col: u32, row: u32) -> String {
+    let name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&col, &row);
+    let cell = sheet.get_cell(&name);
+    let cell = match cell {
+        Some(c) => c,
+        None => {return String::new()}
+    };
+
+    let value = cell.get_value();
+    return value.to_string();
+}
+
+pub fn parse_data_type(field_type:&String) -> Result<(bool, bool, EFieldType, String)>{
+    let mut tmp = field_type.clone();
+    let mut prefix = String::new();
+    let arr:Vec<&str> = tmp.split("<").collect();
+    if arr.len() == 2 {
+        prefix = arr[0].to_string();
+        tmp = arr[1].to_string();
+    }
+    else{
+        tmp = arr[0].to_string();
+    }
+    let mut suffix = String::new();
+    let arr:Vec<&str> = tmp.split(">").collect();
+    let field = arr[0];
+    let data_type = match field {
+        "B" => EFieldType::Bool,
+        "N" => EFieldType::Number,
+        "S" => EFieldType::Str,
+        "E" => EFieldType::Expr,
+        "M" => EFieldType::Table,
+        _ => {bail!(error::AppError::FieldTypeNotSupport(field.to_string()));}
+    };
+    if arr.len() == 2 {
+        suffix = arr[1].to_string();
+    }
+    
+    let mut is_key = false;
+    if prefix == "K" {is_key = true;}
+    let mut is_array = false;
+    if prefix == "A" {is_array = true;}
+    return Ok((is_key, is_array, data_type, suffix))
+}
+
+pub fn load_one_cell(data:&String, data_type:&String) -> Result<serde_json::Value>{
+    let (_, is_array, data_type, _) = parse_data_type(&data_type)?;
+    if is_array {bail!("json 解析")}
+    let ret = match data_type {
+        EFieldType::Bool => {
+            json!(data.to_lowercase() == "true")
+        },
+        EFieldType::Number => {
+            let mut ret = json!(0);
+            if data.len() > 0 {
+                let v = data.parse::<i32>()?;
+                ret = json!(v);
+            }
+            ret
+        },
+        EFieldType::Str | EFieldType::Expr => {
+            json!(data)
+        },
+        EFieldType::Table => {
+            bail!("json 解析");
+        },
+    };
+    return Ok(ret);
+}
+
+
+pub fn load_excel_sheet<T>(
+    path:&PathBuf,
+    sheet_name:&str
+) -> Result<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let book = umya_spreadsheet::reader::xlsx::read(path.clone())?;
+    let ret = book.get_sheet_by_name(sheet_name);
+    let sheet = match ret {
+        Ok(s) => s,
+        Err(e) => {return Err(anyhow::anyhow!(format!("get_sheet_by_name failed: {}", e)));}
+    };
+
+    let (col, row) = sheet.get_highest_column_and_row();
+
+    let mut ret = json!([]);
+    let list = ret.as_array_mut().unwrap();
+    for r in 4..row + 1 {
+        let mut one = json!({});
+        let map = one.as_object_mut().unwrap();
+        for c in 1..col + 1 {
+            let data_type = get_cell_value(&sheet, c, 2);
+            let key = get_cell_value(&sheet, c, 3);
+            let value = get_cell_value(&sheet, c, r);
+            if key.is_empty() {continue;}
+
+            let val = match load_one_cell(&value, &data_type) {
+                Ok(v) => {v},
+                Err(_) => {serde_json::from_str(&value)?},
+            };
+            map.insert(key, val);
+        }
+        list.push(one);
+    }
+    println!("ret: {}", ret);
+    let ret:T = serde_json::from_value(ret)?;
+    return Ok(ret);
 }

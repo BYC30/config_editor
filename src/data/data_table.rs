@@ -101,24 +101,26 @@ impl DataTable {
     }
 
     pub fn output(&self, path: PathBuf, out_type: &String) -> Result<()> {
-        let content = match out_type.as_str() {
-            "csv" => {saver::csv::CsvSaver::output(&self.info, &self.data, &self.key_name)?},
-            "scsv" => {saver::scsv::ScsvSaver::output(&self.info, &self.data, &self.key_name)?},
-            "json" => {saver::json::JsonSaver::output(&self.info, &self.data, &self.key_name)?},
-            _ => {bail!(error::AppError::ExportTypeError(out_type.clone()));}
-        };
         let mut full_path = path.clone();
         if full_path.is_dir() {
             match out_type.as_str() {
                 "csv" | "scsv" => {full_path.push(format!("{}.csv", self.table_name));},
                 "json" => {full_path.push(format!("{}.json", self.table_name));},
+                "excel" => {full_path.push(format!("{}.xlsx", self.table_name));},
                 _ => {bail!(error::AppError::ExportTypeError(out_type.clone()));}
             };
         }
         let mut dir = full_path.clone();
         dir.pop();
         if !dir.exists() { std::fs::create_dir_all(dir.clone())?; }
-        fs::write(full_path, content)?;
+
+        match out_type.as_str() {
+            "csv" => {saver::csv::CsvSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path)?},
+            "scsv" => {saver::scsv::ScsvSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path)?},
+            "json" => {saver::json::JsonSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path)?},
+            "excel" => {saver::excel::ExcelSaver::output(&self.info, &self.data, &self.key_name, &self.table_name, full_path)?},
+            _ => {bail!(error::AppError::ExportTypeError(out_type.clone()));}
+        };
         Ok(())
     }
 
