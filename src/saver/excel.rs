@@ -73,15 +73,11 @@ impl DataSaver for ExcelSaver  {
     ) -> Result<()>{
         let mut book = utils::read_or_create_excel(&path);
 
-        let ret = book.get_sheet_by_name_mut(table_name);
-        let sheet = match ret {
-            Ok(s) => s,
-            Err(e) => {
-                let sheet = book.new_sheet(table_name);
-                if sheet.is_err() {return Err(anyhow::anyhow!(format!("creat sheet failed: {}", e)));}
-                sheet.unwrap()
-            }
-        };
+        // 删除旧表
+        let _ = book.remove_sheet_by_name(table_name);
+        let sheet = book.new_sheet(table_name);
+        if sheet.is_err() {return Err(anyhow::anyhow!(format!("creat sheet[{}] failed: {:?}", table_name, sheet)));}
+        let sheet = sheet.unwrap();
 
         // 表头
         let mut max_col = 0;
@@ -119,16 +115,6 @@ impl DataSaver for ExcelSaver  {
                 let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&col, &row);
                 let cell = sheet.get_cell_mut(cell_name.as_str());
                 cell.set_value(&one_data);
-            }
-        }
-
-        // 删除多余行
-        let (_, max_row) = sheet.get_highest_column_and_row();
-        for i in row+1..max_row + 1 {
-            for j in 1..max_col + 1 {
-                let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&j, &i);
-                let cell = sheet.get_cell_mut(cell_name.as_str());
-                cell.set_value("");
             }
         }
 
