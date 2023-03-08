@@ -72,7 +72,7 @@ impl DataSaver for ExcelSaver  {
         path: PathBuf,
     ) -> Result<()>{
         let mut book = utils::read_or_create_excel(&path);
-        
+
         let ret = book.get_sheet_by_name_mut(table_name);
         let sheet = match ret {
             Ok(s) => s,
@@ -84,20 +84,20 @@ impl DataSaver for ExcelSaver  {
         };
 
         // 表头
-        let mut col = 0;
+        let mut max_col = 0;
         for one in info {
             if !one.export {continue;}
-            col = col + 1;
-            let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&col, &1);
+            max_col = max_col + 1;
+            let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&max_col, &1);
             let cell = sheet.get_cell_mut(&cell_name);
             cell.set_value(&one.title);
 
-            let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&col, &2);
+            let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&max_col, &2);
             let cell = sheet.get_cell_mut(&cell_name);
             cell.set_value(&one.origin);
 
 
-            let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&col, &3);
+            let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&max_col, &3);
             let cell = sheet.get_cell_mut(&cell_name);
             cell.set_value(&one.name);
         }
@@ -119,6 +119,16 @@ impl DataSaver for ExcelSaver  {
                 let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&col, &row);
                 let cell = sheet.get_cell_mut(cell_name.as_str());
                 cell.set_value(&one_data);
+            }
+        }
+
+        // 删除多余行
+        let (_, max_row) = sheet.get_highest_column_and_row();
+        for i in row+1..max_row + 1 {
+            for j in 1..max_col + 1 {
+                let cell_name = umya_spreadsheet::helper::coordinate::coordinate_from_index(&j, &i);
+                let cell = sheet.get_cell_mut(cell_name.as_str());
+                cell.set_value("");
             }
         }
 
