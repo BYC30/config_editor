@@ -2,6 +2,7 @@ pub mod app_cfg;
 pub mod syntax_highlight;
 pub mod theme;
 pub mod action;
+// mod convert;
 
 use std::{collections::HashMap, sync::Mutex, path::PathBuf};
 use eframe::{egui::{self, RichText}, epaint::Color32};
@@ -17,6 +18,18 @@ use self::action::{ActionList, Location};
 lazy_static! {
     pub static ref TEMPLETE_MAP_EXPR: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
     pub static ref TEMPLETE_MAP_SUB_FIELD: Mutex<HashMap<String, TempleteInfo>> = Mutex::new(HashMap::new());
+}
+
+macro_rules! write_cfg {
+    ($this:expr, $filename:expr) => {
+        let mut current = std::env::current_exe()?;
+        current.pop();
+        current.push($filename);
+        if !current.exists() {
+            std::fs::create_dir_all(current.parent().unwrap())?;
+        }
+        std::fs::write(&current, include_bytes!(concat!("../../bin/", $filename)))?;
+    };
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -390,6 +403,17 @@ impl SkillEditorApp {
         return Ok(());
     }
 
+    pub fn create_default_config(&self) -> Result<()> {
+        write_cfg!(self, "app_cfg.xlsx");
+        write_cfg!(self, "save_data/editor_field/编辑器_编辑器配置.json");
+        write_cfg!(self, "save_data/editor_tab/编辑器_编辑器配置.json");
+        write_cfg!(self, "save_data/editor_table/编辑器_编辑器配置.json");
+        write_cfg!(self, "save_data/editor_templete/编辑器_编辑器配置.json");
+        write_cfg!(self, "save_data/editor_templete/表达式模板_客户端.json");
+
+        Ok(())
+    }
+
     pub fn _load_config(&mut self) -> Result<()> {
         self.field_group.clear();
         self.tab_cfg.clear();
@@ -400,6 +424,9 @@ impl SkillEditorApp {
         let mut path = std::env::current_exe()?;
         path.pop();
         path.push("app_cfg.xlsx");
+        if !path.exists() {
+            self.create_default_config()?;
+        }
 
         println!("读取字段配置");
         self.load_field_config(&path)?;
