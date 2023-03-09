@@ -556,14 +556,12 @@ impl SkillEditorApp {
                 text_button!(ui, "↩撤销(Z)", self.undo());
                 text_button!(ui, "↪重做(Y)", self.redo());
                 text_button!(ui, "🔧应用配置", self.cfg.show());
-                text_button!(ui, "📝日志", self.switch_console());
+                text_button!(ui, "🖥控制台", self.switch_console());
 
-                if ui.button("🖥控制台").clicked() {
-
-                }
                 if ui.input(|i| i.key_pressed(egui::Key::S) && i.modifiers.ctrl) {
                     self.save_data(ui.input(|i| i.modifiers.shift));
                 }
+                
                 let mut list: Vec<(String, Vec<MenuInfo>)> = Vec::new();
                 for one in &self.menus {
                     one.check_hotkey(ui);

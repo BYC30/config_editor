@@ -5,6 +5,7 @@ extern crate lazy_static;
 mod app;
 mod data;
 mod error;
+mod marco;
 mod saver;
 mod utils;
 

@@ -8,7 +8,11 @@ use serde_json::json;
 use umya_spreadsheet::{Spreadsheet, Worksheet};
 use walkdir::WalkDir;
 
-use crate::{data::data_field::EFieldType, error};
+use crate::{
+    data::data_field::EFieldType,
+    error,
+    marco::{check_if, check_some},
+};
 
 pub fn get_cell(range: &Range<DataType>, x: u32, y: u32) -> String {
     let one = range.get_value((x, y));
@@ -168,7 +172,7 @@ pub fn translate_key(key: &str) -> Option<eframe::egui::Key> {
 }
 
 // 显示隐藏控制台窗口
-pub fn show_console_window(show:bool){
+pub fn show_console_window(show: bool) {
     use std::ptr;
     use winapi::um::wincon::GetConsoleWindow;
     use winapi::um::winuser::{ShowWindow, SW_HIDE, SW_SHOW};
@@ -179,13 +183,12 @@ pub fn show_console_window(show:bool){
         unsafe {
             if show {
                 ShowWindow(window, SW_SHOW);
-            }else{
+            } else {
                 ShowWindow(window, SW_HIDE);
             }
         }
     }
 }
-
 
 pub fn exec_bat(path: &String) -> Result<()> {
     let mut current_exe = std::env::current_exe()?;
@@ -340,9 +343,8 @@ where
             let data_type = get_cell_value(&sheet, c, 2);
             let key = get_cell_value(&sheet, c, 3);
             let value = get_cell_value(&sheet, c, r);
-            if key.is_empty() {
-                continue;
-            }
+
+            check_if!(key.is_empty(), continue);
 
             let val = load_one_cell(&value, &data_type)?;
             // let val = match load_one_cell(&value, &data_type) {
@@ -372,27 +374,13 @@ where
     for entry in WalkDir::new(path) {
         let entry = entry?;
         let p = entry.path();
-        if p.is_dir() {
-            continue;
-        }
-        let ext = match p.extension() {
-            Some(e) => e,
-            None => continue,
-        };
-        if ext != "xlsx" {
-            continue;
-        }
-        let name = match p.file_name() {
-            Some(n) => n,
-            None => continue,
-        };
-        let name = match name.to_str() {
-            Some(n) => n,
-            None => continue,
-        };
-        if name.starts_with("~$") {
-            continue;
-        }
+
+        check_if!(p.is_dir(), continue);
+        let ext = check_some!(p.extension(), continue);
+        check_if!(ext != "xlsx", continue);
+        let name = check_some!(p.file_name(), continue);
+        let name = check_some!(name.to_str(), continue);
+        check_if!(name.starts_with("~$"), continue);
 
         let mut data: Vec<T> = load_excel_sheet(&p.to_path_buf(), table_name)?;
         ret.append(&mut data);

@@ -7,6 +7,7 @@ use xlsxwriter::{FormatAlignment, FormatBorder, FormatColor};
 use crate::{
     app::TempleteInfo,
     error,
+    marco::{check_if, check_some},
     saver::{self, DataSaver},
     utils,
 };
@@ -293,30 +294,15 @@ impl DataTable {
         for entry in WalkDir::new(path) {
             let entry = entry?;
             let p = entry.path();
-            if p.is_dir() {
-                continue;
-            }
-            let ext = p.extension();
-            if ext.is_none() {
-                continue;
-            }
-            let ext = ext.unwrap();
+            check_if!(p.is_dir(), continue);
+            let ext = check_some!(p.extension(), continue);
             let data: Vec<HashMap<String, String>> = if ext == "json" {
                 let s = std::fs::read_to_string(p)?;
                 serde_json::from_str(&s)?
             } else if ext == "xlsx" {
-                let name = p.file_name();
-                if name.is_none() {
-                    continue;
-                }
-                let name = name.unwrap().to_str();
-                if name.is_none() {
-                    continue;
-                }
-                let name = name.unwrap();
-                if name.starts_with("~$") {
-                    continue;
-                }
+                let name = check_some!(p.file_name(), continue);
+                let name = check_some!(name.to_str(), continue);
+                check_if!(name.starts_with("~$"), continue);
                 utils::load_excel2map(&p.to_path_buf(), &self.table_name)?
             } else {
                 continue;
@@ -327,9 +313,7 @@ impl DataTable {
             }
             for mut one in data {
                 for field in &self.info {
-                    if one.contains_key(&field.name) {
-                        continue;
-                    }
+                    check_if!(field.default_val.is_empty(), continue);
                     one.insert(field.name.clone(), field.default_val.clone());
                 }
 
@@ -442,20 +426,10 @@ impl DataTable {
         let group_key = self.group_key.clone();
         let master_key = self.master_field.clone();
         for one in &self.info {
-            if one.is_key {
-                continue;
-            }
-            if group_key == one.name {
-                continue;
-            }
-            if master_key == one.name {
-                continue;
-            }
-            let cur = cur_row.get(&one.name);
-            if cur.is_none() {
-                continue;
-            }
-            let cur = cur.unwrap();
+            check_if!(one.is_key, continue);
+            check_if!(group_key == one.name, continue);
+            check_if!(master_key == one.name, continue);
+            let cur = check_some!(cur_row.get(&one.name), continue);
             new_row.insert(one.name.clone(), cur.clone());
         }
         return Some(new_row);
@@ -490,19 +464,11 @@ impl DataTable {
             let name = self.get_one_show_name(one);
             let key = utils::map_get_string(&one, &self.key_name, "");
             idx = idx + 1;
-            if name.is_none() {
-                continue;
-            }
+            check_if!(name.is_none(), continue);
             let name = name.unwrap();
             if !master_key.is_empty() && !show_all {
-                let rel_id = one.get(master_key);
-                if rel_id.is_none() {
-                    continue;
-                }
-                let rel_id = rel_id.unwrap();
-                if rel_id != id {
-                    continue;
-                }
+                let rel_id = check_some!(one.get(master_key), continue);
+                check_if!(rel_id != id, continue);
             }
             let group = utils::map_get_string(one, "__Group__", "默认分组");
             let sub_group = utils::map_get_string(one, "__SubGroup__", "默认子分组");
