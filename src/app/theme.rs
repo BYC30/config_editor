@@ -81,35 +81,6 @@ pub struct Theme {
     pub crust: Color32,
 }
 
-pub const LATTE: Theme = Theme {
-    rosewater: Color32::from_rgb(220, 138, 120),
-    flamingo: Color32::from_rgb(221, 120, 120),
-    pink: Color32::from_rgb(234, 118, 203),
-    mauve: Color32::from_rgb(136, 57, 239),
-    red: Color32::from_rgb(210, 15, 57),
-    maroon: Color32::from_rgb(230, 69, 83),
-    peach: Color32::from_rgb(254, 100, 11),
-    yellow: Color32::from_rgb(223, 142, 29),
-    green: Color32::from_rgb(64, 160, 43),
-    teal: Color32::from_rgb(23, 146, 153),
-    sky: Color32::from_rgb(4, 165, 229),
-    sapphire: Color32::from_rgb(32, 159, 181),
-    blue: Color32::from_rgb(30, 102, 245),
-    lavender: Color32::from_rgb(114, 135, 253),
-    text: Color32::from_rgb(76, 79, 105),
-    subtext1: Color32::from_rgb(92, 95, 119),
-    subtext0: Color32::from_rgb(108, 111, 133),
-    overlay2: Color32::from_rgb(124, 127, 147),
-    overlay1: Color32::from_rgb(140, 143, 161),
-    overlay0: Color32::from_rgb(156, 160, 176),
-    surface2: Color32::from_rgb(172, 176, 190),
-    surface1: Color32::from_rgb(188, 192, 204),
-    surface0: Color32::from_rgb(204, 208, 218),
-    base: Color32::from_rgb(239, 241, 245),
-    mantle: Color32::from_rgb(230, 233, 239),
-    crust: Color32::from_rgb(220, 224, 232),
-};
-
 pub const FRAPPE: Theme = Theme {
     rosewater: Color32::from_rgb(242, 213, 207),
     flamingo: Color32::from_rgb(238, 190, 190),

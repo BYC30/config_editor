@@ -1,6 +1,5 @@
 use anyhow::{bail, Result};
 use itertools::Itertools;
-use serde_json::json;
 use std::{collections::HashMap, fs, path::PathBuf};
 use walkdir::WalkDir;
 use xlsxwriter::{FormatAlignment, FormatBorder, FormatColor};

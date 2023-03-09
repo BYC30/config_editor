@@ -14,8 +14,7 @@ use eframe::{
 use egui_notify::Toasts;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf, sync::Mutex};
-use walkdir::WalkDir;
+use std::{collections::HashMap, sync::Mutex};
 
 use self::action::{ActionList, Location};
 
@@ -35,6 +34,18 @@ macro_rules! write_cfg {
             std::fs::create_dir_all(current.parent().unwrap())?;
         }
         std::fs::write(&current, include_bytes!(concat!("../../bin/", $filename)))?;
+    };
+}
+macro_rules! text_button {
+    ($ui:expr, $text:expr, $expr:expr) => {
+        if $ui.button($text).clicked() {
+            $expr;
+        }
+    };
+    ($ui:expr, $text:expr, $hint:expr, $expr:expr) => {
+        if $ui.button($text).on_hover_text($hint).clicked() {
+            $expr;
+        }
     };
 }
 
@@ -535,21 +546,12 @@ impl SkillEditorApp {
     fn draw_menu(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                if ui.button("💾保存(S)").clicked() {
-                    self.save_data(true);
-                }
-                if ui.button("🔃重新载入").clicked() {
-                    self.load_config(true);
-                }
-                if ui.button("↩撤销(Z)").clicked() || self.hotkey_undo {
-                    self.undo();
-                }
-                if ui.button("↪重做(Y)").clicked() || self.hotkey_redo {
-                    self.redo();
-                }
-                if ui.button("🔧应用配置").clicked() {
-                    self.cfg.show();
-                }
+                text_button!(ui, "💾保存(S)", self.save_data(true));
+                text_button!(ui, "🔃重新载入", self.load_config(true));
+                text_button!(ui, "↩撤销(Z)", self.undo());
+                text_button!(ui, "↪重做(Y)", self.redo());
+                text_button!(ui, "🔧应用配置", self.cfg.show());
+                
                 if ui.button("🖥控制台").clicked() {
                     if self.console_show {
                         utils::hide_console_window();
@@ -559,7 +561,6 @@ impl SkillEditorApp {
                     self.console_show = !self.console_show;
                 }
                 if ui.input(|i| i.key_pressed(egui::Key::S) && i.modifiers.ctrl) {
-                    // if ui.input().key_pressed(egui::Key::S) && ui.input().modifiers.ctrl {
                     self.save_data(ui.input(|i| i.modifiers.shift));
                 }
                 let mut list: Vec<(String, Vec<MenuInfo>)> = Vec::new();
@@ -903,21 +904,12 @@ impl SkillEditorApp {
                 ui.heading(title);
             });
             ui.horizontal(|ui| {
-                if ui.button("➕").on_hover_text("新增配置").clicked() {
-                    op = 1;
-                }
-                if ui.button("❌").on_hover_text("删除配置").clicked() {
-                    op = 2;
-                }
-                if ui.button("📋").on_hover_text("复制配置").clicked() {
-                    op = 5;
-                }
-                if ui.button("📥").on_hover_text("导入配置").clicked() {
-                    op = 3;
-                }
-                if ui.button("📤").on_hover_text("导出配置").clicked() {
-                    op = 4;
-                }
+                text_button!(ui, "➕", "新增配置", op = 1);
+                text_button!(ui, "❌", "删除配置", op = 2);
+                text_button!(ui, "📋", "复制配置", op = 3);
+                text_button!(ui, "📥", "导入配置", op = 4);
+                text_button!(ui, "📤", "导出配置", op = 5);
+
                 if show_all.is_some() {
                     all = show_all.unwrap();
                     ui.checkbox(&mut all, "").on_hover_text("显示全部");

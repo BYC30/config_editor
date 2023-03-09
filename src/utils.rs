@@ -383,23 +383,21 @@ where
         if p.is_dir() {
             continue;
         }
-        let ext = p.extension();
-        if ext.is_none() {
-            continue;
-        }
-        let ext = ext.unwrap();
+        let ext = match p.extension() {
+            Some(e) => e,
+            None => continue,
+        };
         if ext != "xlsx" {
             continue;
         }
-        let name = p.file_name();
-        if name.is_none() {
-            continue;
-        }
-        let name = name.unwrap().to_str();
-        if name.is_none() {
-            continue;
-        }
-        let name = name.unwrap();
+        let name = match p.file_name() {
+            Some(n) => n,
+            None => continue,
+        };
+        let name = match name.to_str(){
+            Some(n) => n,
+            None => continue,
+        };
         if name.starts_with("~$") {
             continue;
         }
@@ -411,7 +409,6 @@ where
 }
 
 pub fn load_excel2map(path: &PathBuf, sheet_name: &str) -> Result<Vec<HashMap<String, String>>> {
-    println!("load_excel2map: {:?}", path);
     let book = umya_spreadsheet::reader::xlsx::read(path.clone())?;
     let ret = book.get_sheet_by_name(sheet_name);
     let sheet = match ret {
@@ -436,7 +433,6 @@ pub fn load_excel2map(path: &PathBuf, sheet_name: &str) -> Result<Vec<HashMap<St
         }
         list.push(map);
     }
-    println!("ret: {:?}", list);
     return Ok(list);
 }
 
