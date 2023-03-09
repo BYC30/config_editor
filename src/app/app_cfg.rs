@@ -103,61 +103,18 @@ impl AppCfg {
                                         .spacing([40.0, 4.0])
                                         .striped(true)
                                         .show(ui, |ui| {
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "背景颜色",
-                                                &mut self.custom_theme.base,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "表格间隔颜色",
-                                                &mut self.custom_theme.surface0,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "超链接颜色",
-                                                &mut self.custom_theme.rosewater,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "错误颜色",
-                                                &mut self.custom_theme.maroon,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "警告颜色",
-                                                &mut self.custom_theme.peach,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "选中颜色",
-                                                &mut self.custom_theme.blue,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "文字颜色",
-                                                &mut self.custom_theme.text,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "边框颜色",
-                                                &mut self.custom_theme.overlay1,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "控件悬浮颜色",
-                                                &mut self.custom_theme.surface2,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "控件激活颜色",
-                                                &mut self.custom_theme.surface1,
-                                            );
-                                            AppCfg::color_grid(
-                                                ui,
-                                                "输入框背景颜色",
-                                                &mut self.custom_theme.crust,
-                                            );
+                                            let t = &mut self.custom_theme;
+                                            AppCfg::color_grid(ui, "背景颜色", &mut t.base);
+                                            AppCfg::color_grid(ui, "表格间隔颜色", &mut t.surface0);
+                                            AppCfg::color_grid(ui, "超链接颜色", &mut t.rosewater);
+                                            AppCfg::color_grid(ui, "错误颜色", &mut t.maroon);
+                                            AppCfg::color_grid(ui, "警告颜色", &mut t.peach);
+                                            AppCfg::color_grid(ui, "选中颜色", &mut t.blue);
+                                            AppCfg::color_grid(ui, "文字颜色", &mut t.text);
+                                            AppCfg::color_grid(ui, "边框颜色", &mut t.overlay1);
+                                            AppCfg::color_grid(ui, "控件悬浮颜色", &mut t.surface2);
+                                            AppCfg::color_grid(ui, "控件激活颜色", &mut t.surface1);
+                                            AppCfg::color_grid(ui, "输入框背景颜色", &mut t.crust);
                                         });
                                 });
                         });

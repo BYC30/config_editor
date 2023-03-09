@@ -551,7 +551,7 @@ impl SkillEditorApp {
                 text_button!(ui, "↩撤销(Z)", self.undo());
                 text_button!(ui, "↪重做(Y)", self.redo());
                 text_button!(ui, "🔧应用配置", self.cfg.show());
-                
+
                 if ui.button("🖥控制台").clicked() {
                     if self.console_show {
                         utils::hide_console_window();

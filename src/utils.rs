@@ -394,7 +394,7 @@ where
             Some(n) => n,
             None => continue,
         };
-        let name = match name.to_str(){
+        let name = match name.to_str() {
             Some(n) => n,
             None => continue,
         };
