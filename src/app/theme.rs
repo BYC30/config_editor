@@ -1,7 +1,6 @@
-
 use eframe::egui;
 use egui::{style, Color32};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 pub fn set_theme(ctx: &egui::Context, theme: Theme) {
     let old = ctx.style().visuals.clone();
@@ -51,7 +50,6 @@ fn make_widget_visual(
         ..old
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Theme {

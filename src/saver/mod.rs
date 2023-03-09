@@ -4,11 +4,10 @@ use anyhow::Result;
 
 use crate::data::data_field::FieldInfo;
 
-
 pub trait DataSaver {
     fn output(
-        info: &Vec<FieldInfo>, 
-        data: &Vec<HashMap<String, String>>, 
+        info: &Vec<FieldInfo>,
+        data: &Vec<HashMap<String, String>>,
         key: &String,
         table_name: &String,
         writer: PathBuf,
@@ -17,6 +16,6 @@ pub trait DataSaver {
 }
 
 pub mod csv;
-pub mod scsv;
-pub mod json;
 pub mod excel;
+pub mod json;
+pub mod scsv;

@@ -1,10 +1,14 @@
-use std::{collections::HashMap, path::PathBuf};
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use eframe::{egui, epaint::Color32};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, path::PathBuf};
 
-use crate::{error, app::{TEMPLETE_MAP_EXPR, TEMPLETE_MAP_SUB_FIELD, TempleteInfo}, utils::{self, map2tablestr}, app::syntax_highlight::{show_code_view_ui, code_view_ui}};
-
+use crate::{
+    app::syntax_highlight::{code_view_ui, show_code_view_ui},
+    app::{TempleteInfo, TEMPLETE_MAP_EXPR, TEMPLETE_MAP_SUB_FIELD},
+    error,
+    utils::{self, map2tablestr},
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum EFieldType {
@@ -16,8 +20,7 @@ pub enum EFieldType {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum EEditorType
-{
+pub enum EEditorType {
     Const,
     Text,
     Enum,
@@ -30,7 +33,7 @@ pub enum EEditorType
 }
 
 #[derive(Debug, Clone)]
-pub struct EnumOption{
+pub struct EnumOption {
     pub show: String,
     pub val: String,
 }
@@ -50,16 +53,27 @@ pub struct FieldInfo {
     pub link_table: String,
     pub export: bool,
     pub header: Vec<String>,
-    
+
     pub is_key: bool,
     pub is_array: bool,
     pub suffix: String,
     pub origin: String,
 }
 
-
 impl FieldInfo {
-    pub fn parse(name:String, title:String, desc:String, group:String, field_type:String, editor_type:String, opt_str:Vec<String>,default:String,link_table:String,export:bool, header:Vec<String>) -> Result<FieldInfo> {
+    pub fn parse(
+        name: String,
+        title: String,
+        desc: String,
+        group: String,
+        field_type: String,
+        editor_type: String,
+        opt_str: Vec<String>,
+        default: String,
+        link_table: String,
+        export: bool,
+        header: Vec<String>,
+    ) -> Result<FieldInfo> {
         let (is_key, is_array, data_type, suffix) = utils::parse_data_type(&field_type)?;
 
         let editor_type = match editor_type.as_str() {
@@ -72,16 +86,18 @@ impl FieldInfo {
             "BitFlag" => EEditorType::BitFlag,
             "TempleteExpr" => EEditorType::TempleteExpr,
             "SubField" => EEditorType::SubField,
-            _ => {bail!(error::AppError::EditorTypeNotSupport(editor_type))}
+            _ => {
+                bail!(error::AppError::EditorTypeNotSupport(editor_type))
+            }
         };
         let mut opt: Vec<EnumOption> = Vec::new();
         if editor_type == EEditorType::Enum {
             for one in &opt_str {
-                let one:Vec<&str> = one.split(":").collect();
+                let one: Vec<&str> = one.split(":").collect();
                 if one.len() >= 2 {
                     let val = one.get(0).unwrap().clone().trim().to_string();
                     let show = one.get(1).unwrap().clone().trim().to_string();
-                    opt.push(EnumOption{show, val})
+                    opt.push(EnumOption { show, val })
                 }
             }
         }
@@ -97,7 +113,7 @@ impl FieldInfo {
                 sub_field_key = opt_str[0].clone();
             }
         }
-        return Ok(FieldInfo { 
+        return Ok(FieldInfo {
             name,
             title,
             desc,
@@ -123,27 +139,39 @@ fn uasset2str(path: PathBuf, is_bp: bool) -> Result<String> {
     let exe_path = dunce::canonicalize(path.clone())?;
     let path_str = exe_path.to_str().unwrap().to_string();
     let file_name = path.file_name();
-    if file_name.is_none() {bail!(error::AppError::UEFileNameNotFound(path_str))}
+    if file_name.is_none() {
+        bail!(error::AppError::UEFileNameNotFound(path_str))
+    }
     let file_name = file_name.unwrap().to_str();
-    if file_name.is_none() {bail!(error::AppError::UEFileNameNotFound(path_str))}
+    if file_name.is_none() {
+        bail!(error::AppError::UEFileNameNotFound(path_str))
+    }
     let file_name = file_name.unwrap();
     let ret = path_str.find("\\Content\\");
-    if ret.is_none() {bail!(error::AppError::UEFileContentNotFound(path_str))}
+    if ret.is_none() {
+        bail!(error::AppError::UEFileContentNotFound(path_str))
+    }
     let ret = ret.unwrap();
     println!("{}", path_str);
-    let path_str = path_str[ret+9..path_str.len()].to_string();
+    let path_str = path_str[ret + 9..path_str.len()].to_string();
     println!("{}", path_str);
-    if !path_str.ends_with(".uasset") {bail!(error::AppError::UEFileNotUasset(path_str))}
+    if !path_str.ends_with(".uasset") {
+        bail!(error::AppError::UEFileNotUasset(path_str))
+    }
     let name_without_ext = file_name.replace(".uasset", "");
     let mut replace = format!(".{}", name_without_ext);
-    if is_bp {replace = format!("{}_C", replace);}
+    if is_bp {
+        replace = format!("{}_C", replace);
+    }
     let path_str = path_str.replace(".uasset", &replace.as_str());
-    let path_str = format!("/Game/{}", path_str).replace("\\\\", "/").replace("\\", "/");
-    return Ok(path_str)
+    let path_str = format!("/Game/{}", path_str)
+        .replace("\\\\", "/")
+        .replace("\\", "/");
+    return Ok(path_str);
 }
 
 #[derive(Serialize, Deserialize)]
-struct TempleteData{
+struct TempleteData {
     id: String,
     #[serde(serialize_with = "utils::ordered_map")]
     data: HashMap<String, String>,
@@ -161,8 +189,14 @@ impl TempleteData {
 }
 
 impl FieldInfo {
-    fn draw_one_templete(&self, field:&Vec<FieldInfo>, map:&mut HashMap<String, String>, ui: &mut egui::Ui, idx:i32) -> bool {
-        let mut draw_info:Vec<(String, Vec<(i32, FieldInfo)>)> = Vec::new();
+    fn draw_one_templete(
+        &self,
+        field: &Vec<FieldInfo>,
+        map: &mut HashMap<String, String>,
+        ui: &mut egui::Ui,
+        idx: i32,
+    ) -> bool {
+        let mut draw_info: Vec<(String, Vec<(i32, FieldInfo)>)> = Vec::new();
         let mut idx = idx * 10000;
         for one in field {
             idx = idx + 1;
@@ -179,7 +213,7 @@ impl FieldInfo {
                 draw_info.push((group, vec![(idx, one.clone())]));
             }
         }
-        
+
         // let size = ui.available_size();
         let mut click_flag = false;
         let grid_id = format!("detail_panel_grid_{}", idx);
@@ -188,19 +222,21 @@ impl FieldInfo {
             .spacing([4.0, 4.0])
             // .min_col_width(size.x/3.0)
             .striped(true);
-        grid.show(ui, |ui|{
+        grid.show(ui, |ui| {
             for one in field {
                 let val = map.get(&one.name);
                 let old = match val {
-                    Some(s) => {s.clone()},
-                    None => {String::new()},
+                    Some(s) => s.clone(),
+                    None => String::new(),
                 };
                 let mut new = old.clone();
                 let f = one.create_ui(&mut new, ui, false, &String::new(), idx);
                 if f {
                     click_flag = true;
                 }
-                if old != new {map.insert(one.name.clone(), new);}
+                if old != new {
+                    map.insert(one.name.clone(), new);
+                }
                 ui.end_row();
             }
         });
@@ -208,19 +244,27 @@ impl FieldInfo {
         return click_flag;
     }
 
-    fn draw_templete(&self, data:&mut Vec<TempleteData>, ui: &mut egui::Ui, idx:i32) -> (bool, String){
+    fn draw_templete(
+        &self,
+        data: &mut Vec<TempleteData>,
+        ui: &mut egui::Ui,
+        idx: i32,
+    ) -> (bool, String) {
         let templete = TEMPLETE_MAP_EXPR.lock().unwrap();
         let mut click = false;
         let mut ret = Vec::new();
         let mut list = Vec::new();
         let mut first = String::new();
         for (k, v) in &*templete {
-            if first.is_empty() {first = k.clone();}
+            if first.is_empty() {
+                first = k.clone();
+            }
             list.push((v.title.clone(), k.clone()));
         }
         list.sort();
         if first.is_empty() {
-            let err_info = egui::RichText::new("无可用模板, 请配置模板功能页").color(Color32::YELLOW);
+            let err_info =
+                egui::RichText::new("无可用模板, 请配置模板功能页").color(Color32::YELLOW);
             ui.label(err_info);
             return (false, String::new());
         }
@@ -246,7 +290,7 @@ impl FieldInfo {
                             reset = true;
                             click = true;
                         }
-                        if resp.gained_focus(){
+                        if resp.gained_focus() {
                             click = true;
                         }
                     }
@@ -255,7 +299,8 @@ impl FieldInfo {
             if reset {
                 let info = templete.get(&one.id).unwrap();
                 for field in &info.field {
-                    one.data.insert(field.name.clone(), field.default_val.clone());
+                    one.data
+                        .insert(field.name.clone(), field.default_val.clone());
                 }
             }
             let id = format!("{}_{}_{}_CollapsingHeader", self.name, idx, child_idx);
@@ -264,8 +309,9 @@ impl FieldInfo {
             show_code_view_ui(ui, expr.as_str(), "lua");
             // ui.label(expr);
             egui::CollapsingHeader::new(info.title.clone())
-                .id_source(id).show(ui, |ui|{
-                    if self.draw_one_templete(&info.field, &mut one.data, ui, idx){
+                .id_source(id)
+                .show(ui, |ui| {
+                    if self.draw_one_templete(&info.field, &mut one.data, ui, idx) {
                         click = true;
                     }
                 });
@@ -274,23 +320,24 @@ impl FieldInfo {
         return (false, ret.join("\r\n"));
     }
 
-    fn create_one_ui(&self, val: &String, ui: &mut egui::Ui, idx:i32) -> (bool, String) {
+    fn create_one_ui(&self, val: &String, ui: &mut egui::Ui, idx: i32) -> (bool, String) {
         let mut flag = false;
         let mut ret = String::new();
-        ui.vertical(|ui|{
+        ui.vertical(|ui| {
             match self.val_type {
                 EFieldType::Expr => {
                     let msg = format!("参数:{}", self.suffix);
                     let info = egui::RichText::new(msg);
                     ui.label(info);
-                },
+                }
                 _ => {} // 其他不检查
             }
 
             match self.editor_type {
                 EEditorType::Const => {
                     let mut v = val.clone();
-                    let txt1 = egui::TextEdit::singleline(&mut v).interactive(false)
+                    let txt1 = egui::TextEdit::singleline(&mut v)
+                        .interactive(false)
                         .desired_width(f32::INFINITY);
                     ui.add(txt1);
                     ret = v;
@@ -301,15 +348,18 @@ impl FieldInfo {
                     if one.gained_focus() || one.changed() {
                         flag = true;
                     }
-                    ret = if v {"True".to_string()} else {"false".to_string()};
-                },
+                    ret = if v {
+                        "True".to_string()
+                    } else {
+                        "false".to_string()
+                    };
+                }
                 EEditorType::Text => {
                     let mut v = val.clone();
-                    
+
                     let txt = if self.val_type == EFieldType::Number {
                         egui::TextEdit::singleline(&mut v).desired_width(f32::INFINITY)
-                    }
-                    else{
+                    } else {
                         egui::TextEdit::multiline(&mut v)
                             .desired_width(f32::INFINITY)
                             .desired_rows(1)
@@ -319,14 +369,14 @@ impl FieldInfo {
                         if code_view_ui(ui, &mut v, "lua") {
                             flag = true;
                         }
-                    }else{
-                        if ui.add(txt).gained_focus(){
+                    } else {
+                        if ui.add(txt).gained_focus() {
                             flag = true;
                         }
                     }
 
                     ret = v;
-                },
+                }
                 EEditorType::TempleteExpr => {
                     let mut v = val.clone();
                     let mut format = true;
@@ -340,94 +390,107 @@ impl FieldInfo {
                                 break;
                             }
                         }
-                        let result: Result<Vec<TempleteData>, serde_json::Error> = serde_json::from_str(json);
-                        if result.is_err() {format = false;}
+                        let result: Result<Vec<TempleteData>, serde_json::Error> =
+                            serde_json::from_str(json);
+                        if result.is_err() {
+                            format = false;
+                        }
 
                         if format {
-                            let mut data:Vec<TempleteData> = serde_json::from_str(json).unwrap();
-                            ui.horizontal(|ui|{
+                            let mut data: Vec<TempleteData> = serde_json::from_str(json).unwrap();
+                            ui.horizontal(|ui| {
                                 if ui.button("+").clicked() {
-                                    data.push(TempleteData { id: String::new(), data: HashMap::new() });
+                                    data.push(TempleteData {
+                                        id: String::new(),
+                                        data: HashMap::new(),
+                                    });
                                 }
                                 if ui.button("-").clicked() {
                                     data.pop();
                                 }
                             });
                             let (click, expr) = self.draw_templete(&mut data, ui, idx);
-                            if click {flag = true;}
+                            if click {
+                                flag = true;
+                            }
                             let data = serde_json::to_string(&data).unwrap();
                             ret = format!("--{}\r\n{}", data, expr);
-                        }
-                        else{
+                        } else {
                             ui.label("格式错误, 请删除表达式后再使用模板功能");
-                            let txt = egui::TextEdit::multiline(&mut v).desired_width(f32::INFINITY);
+                            let txt =
+                                egui::TextEdit::multiline(&mut v).desired_width(f32::INFINITY);
                             ui.add(txt);
                             ret = v;
                         }
                     });
-                },
+                }
                 EEditorType::BitFlag => {
                     let mut v = val.clone();
                     let num = v.parse::<u32>();
                     let num = match num {
-                        Ok(n) => {n},
-                        Err(_) => {0},
+                        Ok(n) => n,
+                        Err(_) => 0,
                     };
 
-                    ui.collapsing(self.title.clone(), |ui|{
+                    ui.collapsing(self.title.clone(), |ui| {
                         let mut bit = 1;
                         let mut result = 0;
                         for name in &self.bit_name {
                             let mut select = num & bit != 0;
-                            if ui.checkbox(&mut select, name).gained_focus(){
+                            if ui.checkbox(&mut select, name).gained_focus() {
                                 flag = true;
                             }
-                            if select { result = result + bit; }
+                            if select {
+                                result = result + bit;
+                            }
                             bit = bit << 1;
                         }
                         v = result.to_string();
                     });
-                    let txt1 = egui::TextEdit::singleline(&mut v).interactive(false)
+                    let txt1 = egui::TextEdit::singleline(&mut v)
+                        .interactive(false)
                         .desired_width(f32::INFINITY);
                     ui.add(txt1);
                     ret = v;
                 }
                 EEditorType::UEFile => {
-                    ui.horizontal_centered(|ui|{
+                    ui.horizontal_centered(|ui| {
                         let mut v = val.clone();
                         if ui.button("📁").clicked() {
                             if let Some(path) = rfd::FileDialog::new()
-                            .add_filter("uasset", &["uasset"])
-                            .pick_file() {
+                                .add_filter("uasset", &["uasset"])
+                                .pick_file()
+                            {
                                 let path = uasset2str(path, false);
                                 match path {
-                                    Ok(s) => { v = s },
-                                    Err(e) => {println!("error:{:?}", e)},
+                                    Ok(s) => v = s,
+                                    Err(e) => {
+                                        println!("error:{:?}", e)
+                                    }
                                 }
                             }
                         }
-                        let txt1 = egui::TextEdit::singleline(&mut v)
-                            .desired_width(f32::INFINITY);
+                        let txt1 = egui::TextEdit::singleline(&mut v).desired_width(f32::INFINITY);
                         ui.add(txt1);
                         ret = v;
                     });
                 }
                 EEditorType::Blueprint => {
-                    ui.horizontal_centered(|ui|{
+                    ui.horizontal_centered(|ui| {
                         let mut v = val.clone();
                         if ui.button("📁").clicked() {
                             if let Some(path) = rfd::FileDialog::new()
-                            .add_filter("uasset", &["uasset"])
-                            .pick_file() {
+                                .add_filter("uasset", &["uasset"])
+                                .pick_file()
+                            {
                                 let path = uasset2str(path, true);
                                 match path {
-                                    Ok(s) => { v = s },
-                                    Err(_) => {},
+                                    Ok(s) => v = s,
+                                    Err(_) => {}
                                 }
                             }
                         }
-                        let txt1 = egui::TextEdit::singleline(&mut v)
-                            .desired_width(f32::INFINITY);
+                        let txt1 = egui::TextEdit::singleline(&mut v).desired_width(f32::INFINITY);
                         ui.add(txt1);
                         ret = v;
                     });
@@ -439,23 +502,28 @@ impl FieldInfo {
                     let data = utils::tablestr2map(&v);
 
                     let mut msg = String::new();
-                    if data.is_err() { msg = format!("格式错误[{:?}]", data); }
-                    if info.is_none() { msg = format!("未找到模板[{}]", self.sub_field_key); }
+                    if data.is_err() {
+                        msg = format!("格式错误[{:?}]", data);
+                    }
+                    if info.is_none() {
+                        msg = format!("未找到模板[{}]", self.sub_field_key);
+                    }
 
                     if !msg.is_empty() {
                         let txt = egui::TextEdit::multiline(&mut v).desired_width(f32::INFINITY);
                         ui.add(txt);
                         let err_info = egui::RichText::new(msg).color(Color32::RED);
                         ui.label(err_info);
-                    }
-                    else{
+                    } else {
                         let mut data = data.unwrap();
                         let info = info.unwrap();
                         self.draw_one_templete(&info.field, &mut data, ui, idx);
                         let ret = map2tablestr(&data);
-                        if ret.is_ok() { v = ret.unwrap(); }
+                        if ret.is_ok() {
+                            v = ret.unwrap();
+                        }
                     }
-                    
+
                     ret = v;
                 }
                 EEditorType::Enum => {
@@ -463,25 +531,31 @@ impl FieldInfo {
                     let mut txt = String::new();
                     let mut found = false;
                     for one in &self.opt {
-                        if one.val != v {continue;}
+                        if one.val != v {
+                            continue;
+                        }
                         txt = format!("[{}]{}", one.val, one.show);
                         found = true;
                         break;
                     }
-                    if !found {txt = format!("[{}]未定义选项", v);}
+                    if !found {
+                        txt = format!("[{}]未定义选项", v);
+                    }
                     let mut label = egui::RichText::new(txt);
-                    if !found {label = label.color(Color32::RED);}
+                    if !found {
+                        label = label.color(Color32::RED);
+                    }
                     let size = ui.available_size();
                     let id = format!("{}_{}_combobox", self.name, idx);
                     egui::ComboBox::from_id_source(id)
-                    .width(size.x * 0.95)
-                    .selected_text(label)
-                    .show_ui(ui, |ui| {
-                        for one in &self.opt {
-                            let show = format!("[{}]{}", one.val, one.show);
-                            ui.selectable_value(&mut v, one.val.clone(), show);
-                        }
-                    });
+                        .width(size.x * 0.95)
+                        .selected_text(label)
+                        .show_ui(ui, |ui| {
+                            for one in &self.opt {
+                                let show = format!("[{}]{}", one.val, one.show);
+                                ui.selectable_value(&mut v, one.val.clone(), show);
+                            }
+                        });
                     ret = v;
                 }
             }
@@ -495,7 +569,7 @@ impl FieldInfo {
         return (flag, ret);
     }
 
-    fn check_one_data(&self, val:&String) -> (bool, String){
+    fn check_one_data(&self, val: &String) -> (bool, String) {
         let mut ret = false;
         let mut msg = String::new();
         // 类型检查
@@ -508,7 +582,7 @@ impl FieldInfo {
                     ret = true;
                     msg = "输入内容非数字".to_string();
                 }
-            },
+            }
             EFieldType::Expr => {
                 let v = val.clone();
                 let lua = mlua::Lua::new();
@@ -516,68 +590,86 @@ impl FieldInfo {
                 if !self.suffix.starts_with("void") && !body.contains("return") {
                     body = format!("return {}", body);
                 }
-                let s = format!(r#"return function()
+                let s = format!(
+                    r#"return function()
                 {}
-                end"#, body);
+                end"#,
+                    body
+                );
                 let result = lua.load(s.as_str()).exec();
                 match result {
-                    Ok(_) => {},
+                    Ok(_) => {}
                     Err(e) => {
                         ret = true;
                         msg = e.to_string();
                     }
                 }
-            },
+            }
             _ => {} // 其他不检查
         }
-        return (ret, msg)
+        return (ret, msg);
     }
 
     #[allow(dead_code)]
-    pub fn check_data(&self, val:&String) -> (bool, String){
+    pub fn check_data(&self, val: &String) -> (bool, String) {
         let mut ret = false;
         let mut msg = String::new();
 
         if self.is_array {
-            let mut arr:Vec<&str> = Vec::new();
+            let mut arr: Vec<&str> = Vec::new();
             if !val.is_empty() {
                 arr = val.split(";").collect();
             }
             for one in arr {
                 let s = one.to_string();
                 (ret, msg) = self.check_one_data(&s);
-                if ret {break;}
+                if ret {
+                    break;
+                }
             }
-        }else{
+        } else {
             (ret, msg) = self.check_one_data(val);
         }
-        return (ret, msg)
+        return (ret, msg);
     }
 
-    pub fn create_ui(&self, val: &mut String, ui: &mut egui::Ui, selected: bool, search:&String, start:i32) -> bool {
+    pub fn create_ui(
+        &self,
+        val: &mut String,
+        ui: &mut egui::Ui,
+        selected: bool,
+        search: &String,
+        start: i32,
+    ) -> bool {
         let mut flag = false;
 
         let mut title = self.title.clone();
-        if self.title != self.name {title = format!("{}({})", self.title, self.name);}
+        if self.title != self.name {
+            title = format!("{}({})", self.title, self.name);
+        }
         let mut txt = egui::RichText::new(title.clone());
         let search_low = search.to_lowercase();
-        if !search_low.is_empty()  && (title.to_lowercase().contains(&search_low) || val.to_lowercase().contains(&search_low)) {
+        if !search_low.is_empty()
+            && (title.to_lowercase().contains(&search_low)
+                || val.to_lowercase().contains(&search_low))
+        {
             txt = txt.color(Color32::GREEN)
         }
-        let resp = ui.selectable_label(selected, txt)
+        let resp = ui
+            .selectable_label(selected, txt)
             .on_hover_text(self.desc.clone());
-        if resp.clicked(){
+        if resp.clicked() {
             flag = true;
         }
 
         if self.is_array {
-            let mut arr:Vec<&str> = Vec::new();
+            let mut arr: Vec<&str> = Vec::new();
             if !val.is_empty() {
                 arr = val.split(";").collect();
             }
             let mut new = Vec::new();
             ui.vertical_centered(|ui| {
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     if ui.button("+").clicked() {
                         arr.push("0");
                     }
@@ -590,18 +682,20 @@ impl FieldInfo {
                     idx = idx + 1;
                     let s = one.to_string();
                     let (f, ret) = self.create_one_ui(&s, ui, idx);
-                    if f {flag = true};
+                    if f {
+                        flag = true
+                    };
                     new.push(ret);
                 }
             });
             *val = new.join(";");
-        }else{
+        } else {
             let (f, ret) = self.create_one_ui(&val, ui, 1);
-            if f {flag = true;}
+            if f {
+                flag = true;
+            }
             *val = ret
         }
         return flag;
     }
 }
-
-

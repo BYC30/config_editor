@@ -10,9 +10,9 @@ pub enum AppError {
     #[error("表格[{0}]主键未找到")]
     TableKeyNotFound(String),
     #[error("字段类型[{0}]不支持")]
-    FieldTypeNotSupport (String),
+    FieldTypeNotSupport(String),
     #[error("编辑器类型[{0}]不支持")]
-    EditorTypeNotSupport (String),
+    EditorTypeNotSupport(String),
     #[error("未知错误[{0}]")]
     Other(#[from] anyhow::Error),
     #[error("导入表格key[{0}]未找到")]

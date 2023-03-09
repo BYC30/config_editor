@@ -1,10 +1,13 @@
-use eframe::{egui::{self, DragValue}, epaint::Color32};
-use serde::{Serialize, Deserialize};
+use eframe::{
+    egui::{self, DragValue},
+    epaint::Color32,
+};
+use serde::{Deserialize, Serialize};
 
 use crate::app::theme;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct AppCfg{
+pub struct AppCfg {
     show: bool,
     show_setting: bool,
     base_theme: i32,
@@ -25,25 +28,25 @@ impl Default for AppCfg {
 }
 
 impl AppCfg {
-    pub fn show(&mut self){
+    pub fn show(&mut self) {
         self.show = true;
     }
 
-    pub fn color_grid(ui: &mut egui::Ui, title: &str, color:&mut Color32){
+    pub fn color_grid(ui: &mut egui::Ui, title: &str, color: &mut Color32) {
         ui.label(title);
-        ui.horizontal(|ui|{
+        ui.horizontal(|ui| {
             ui.color_edit_button_srgba(color);
-            
+
             let mut r = color.r();
             let mut g = color.g();
             let mut b = color.b();
             let mut a = color.a();
 
-            ui.add(DragValue::new(&mut r).prefix("r:").clamp_range(0.0..=255.0),);
-            ui.add(DragValue::new(&mut g).prefix("g:").clamp_range(0.0..=255.0),);
-            ui.add(DragValue::new(&mut b).prefix("b:").clamp_range(0.0..=255.0),);
-            ui.add(DragValue::new(&mut a).prefix("a:").clamp_range(0.0..=255.0),);
-            
+            ui.add(DragValue::new(&mut r).prefix("r:").clamp_range(0.0..=255.0));
+            ui.add(DragValue::new(&mut g).prefix("g:").clamp_range(0.0..=255.0));
+            ui.add(DragValue::new(&mut b).prefix("b:").clamp_range(0.0..=255.0));
+            ui.add(DragValue::new(&mut a).prefix("a:").clamp_range(0.0..=255.0));
+
             *color = Color32::from_rgba_premultiplied(r, g, b, a);
         });
         ui.end_row();
@@ -77,35 +80,85 @@ impl AppCfg {
                         });
                         ui.end_row();
 
-                        
                         ui.add(egui::Label::new("自定义"));
-                        ui.vertical(|ui|{
-                            ui.horizontal(|ui|{
+                        ui.vertical(|ui| {
+                            ui.horizontal(|ui| {
                                 ui.label("复制");
-                                if ui.button("MOCHA").clicked() {self.custom_theme = theme::MOCHA.clone();}
-                                if ui.button("MACCHIATO").clicked() {self.custom_theme = theme::MACCHIATO.clone();}
-                                if ui.button("FRAPPE").clicked() {self.custom_theme = theme::FRAPPE.clone();}
+                                if ui.button("MOCHA").clicked() {
+                                    self.custom_theme = theme::MOCHA.clone();
+                                }
+                                if ui.button("MACCHIATO").clicked() {
+                                    self.custom_theme = theme::MACCHIATO.clone();
+                                }
+                                if ui.button("FRAPPE").clicked() {
+                                    self.custom_theme = theme::FRAPPE.clone();
+                                }
                             });
 
                             egui::CollapsingHeader::new("自定义颜色")
-                                .id_source("custom_theme").show(ui, |ui|{
+                                .id_source("custom_theme")
+                                .show(ui, |ui| {
                                     egui::Grid::new("my_grid")
-                                    .num_columns(2)
-                                    .spacing([40.0, 4.0])
-                                    .striped(true)
-                                    .show(ui, |ui| {
-                                        AppCfg::color_grid(ui, "背景颜色", &mut self.custom_theme.base);
-                                        AppCfg::color_grid(ui, "表格间隔颜色", &mut self.custom_theme.surface0);
-                                        AppCfg::color_grid(ui, "超链接颜色", &mut self.custom_theme.rosewater);
-                                        AppCfg::color_grid(ui, "错误颜色", &mut self.custom_theme.maroon);
-                                        AppCfg::color_grid(ui, "警告颜色", &mut self.custom_theme.peach);
-                                        AppCfg::color_grid(ui, "选中颜色", &mut self.custom_theme.blue);
-                                        AppCfg::color_grid(ui, "文字颜色", &mut self.custom_theme.text);
-                                        AppCfg::color_grid(ui, "边框颜色", &mut self.custom_theme.overlay1);
-                                        AppCfg::color_grid(ui, "控件悬浮颜色", &mut self.custom_theme.surface2);
-                                        AppCfg::color_grid(ui, "控件激活颜色", &mut self.custom_theme.surface1);
-                                        AppCfg::color_grid(ui, "输入框背景颜色", &mut self.custom_theme.crust);
-                                    });
+                                        .num_columns(2)
+                                        .spacing([40.0, 4.0])
+                                        .striped(true)
+                                        .show(ui, |ui| {
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "背景颜色",
+                                                &mut self.custom_theme.base,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "表格间隔颜色",
+                                                &mut self.custom_theme.surface0,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "超链接颜色",
+                                                &mut self.custom_theme.rosewater,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "错误颜色",
+                                                &mut self.custom_theme.maroon,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "警告颜色",
+                                                &mut self.custom_theme.peach,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "选中颜色",
+                                                &mut self.custom_theme.blue,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "文字颜色",
+                                                &mut self.custom_theme.text,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "边框颜色",
+                                                &mut self.custom_theme.overlay1,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "控件悬浮颜色",
+                                                &mut self.custom_theme.surface2,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "控件激活颜色",
+                                                &mut self.custom_theme.surface1,
+                                            );
+                                            AppCfg::color_grid(
+                                                ui,
+                                                "输入框背景颜色",
+                                                &mut self.custom_theme.crust,
+                                            );
+                                        });
                                 });
                         });
                         ui.end_row();
@@ -124,7 +177,9 @@ impl AppCfg {
             .show(ctx, |ui| {
                 ctx.settings_ui(ui);
             });
-        if old == *self { return; }
+        if old == *self {
+            return;
+        }
         self.update_cfg(ctx);
     }
 
@@ -138,18 +193,18 @@ impl AppCfg {
                 visual.slider_trailing_fill = true;
                 ctx.set_visuals(visual);
                 return;
-            },
-            1 => {theme::FRAPPE},
-            2 => {theme::MACCHIATO},
-            3 => {theme::MOCHA},
-            4 => {custom}
-            _ => {theme::MOCHA}
+            }
+            1 => theme::FRAPPE,
+            2 => theme::MACCHIATO,
+            3 => theme::MOCHA,
+            4 => custom,
+            _ => theme::MOCHA,
         };
 
         theme::set_theme(&ctx, theme);
     }
 
-    pub fn update_cfg(&self, ctx: &egui::Context){
-        AppCfg::update_theme(self.base_theme,  self.custom_theme.clone(), ctx);
+    pub fn update_cfg(&self, ctx: &egui::Context) {
+        AppCfg::update_theme(self.base_theme, self.custom_theme.clone(), ctx);
     }
 }

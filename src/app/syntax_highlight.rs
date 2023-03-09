@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 use eframe::egui;
 use egui::text::LayoutJob;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-pub fn code_view_ui(ui: &mut egui::Ui, code: & mut String, language: &str) -> bool {
+pub fn code_view_ui(ui: &mut egui::Ui, code: &mut String, language: &str) -> bool {
     let theme = CodeTheme::from_memory(ui.ctx());
 
     let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
@@ -40,7 +40,6 @@ pub fn show_code_view_ui(ui: &mut egui::Ui, mut code: &str, language: &str) {
         .layouter(&mut layouter);
     ui.add(txt);
 }
-
 
 /// Memoized Code highlighting
 pub fn highlight(ctx: &egui::Context, theme: &CodeTheme, code: &str, language: &str) -> LayoutJob {
@@ -196,7 +195,6 @@ impl CodeTheme {
 }
 
 // ----------------------------------------------------------------------------
-
 
 struct Highlighter {
     ps: syntect::parsing::SyntaxSet,
