@@ -167,33 +167,25 @@ pub fn translate_key(key: &str) -> Option<eframe::egui::Key> {
     }
 }
 
-pub fn hide_console_window() {
+// 显示隐藏控制台窗口
+pub fn show_console_window(show:bool){
     use std::ptr;
     use winapi::um::wincon::GetConsoleWindow;
-    use winapi::um::winuser::{ShowWindow, SW_HIDE};
+    use winapi::um::winuser::{ShowWindow, SW_HIDE, SW_SHOW};
 
     let window = unsafe { GetConsoleWindow() };
     // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
     if window != ptr::null_mut() {
         unsafe {
-            ShowWindow(window, SW_HIDE);
+            if show {
+                ShowWindow(window, SW_SHOW);
+            }else{
+                ShowWindow(window, SW_HIDE);
+            }
         }
     }
 }
 
-pub fn show_console_window() {
-    use std::ptr;
-    use winapi::um::wincon::GetConsoleWindow;
-    use winapi::um::winuser::{ShowWindow, SW_SHOW};
-
-    let window = unsafe { GetConsoleWindow() };
-    // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
-    if window != ptr::null_mut() {
-        unsafe {
-            ShowWindow(window, SW_SHOW);
-        }
-    }
-}
 
 pub fn exec_bat(path: &String) -> Result<()> {
     let mut current_exe = std::env::current_exe()?;

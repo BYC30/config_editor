@@ -204,7 +204,7 @@ impl SkillEditorApp {
         visual.slider_trailing_fill = true;
         cc.egui_ctx.set_visuals(visual);
 
-        utils::hide_console_window();
+        utils::show_console_window(false);
 
         let mut ret = Self::default();
 
@@ -543,6 +543,11 @@ impl SkillEditorApp {
 
 // UI 相关接口
 impl SkillEditorApp {
+    fn switch_console(&mut self) {
+        self.console_show = !self.console_show;
+        utils::show_console_window(self.console_show);
+    }
+
     fn draw_menu(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -551,14 +556,10 @@ impl SkillEditorApp {
                 text_button!(ui, "↩撤销(Z)", self.undo());
                 text_button!(ui, "↪重做(Y)", self.redo());
                 text_button!(ui, "🔧应用配置", self.cfg.show());
+                text_button!(ui, "📝日志", self.switch_console());
 
                 if ui.button("🖥控制台").clicked() {
-                    if self.console_show {
-                        utils::hide_console_window();
-                    } else {
-                        utils::show_console_window();
-                    }
-                    self.console_show = !self.console_show;
+
                 }
                 if ui.input(|i| i.key_pressed(egui::Key::S) && i.modifiers.ctrl) {
                     self.save_data(ui.input(|i| i.modifiers.shift));
