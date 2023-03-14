@@ -421,7 +421,11 @@ pub fn read_or_create_excel(path: &PathBuf) -> Spreadsheet {
     let book = umya_spreadsheet::reader::xlsx::read(path.clone());
     let book = match book {
         Ok(b) => b,
-        Err(_e) => umya_spreadsheet::new_file(),
+        Err(_e) => {
+            let mut file = umya_spreadsheet::new_file();
+            let _ = file.remove_sheet_by_name("Sheet1");
+            file
+        },
     };
 
     return book;
