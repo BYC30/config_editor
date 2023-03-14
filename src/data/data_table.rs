@@ -313,6 +313,7 @@ impl DataTable {
             }
             for mut one in data {
                 for field in &self.info {
+                    check_if!(one.contains_key(&field.name), continue);
                     check_if!(field.default_val.is_empty(), continue);
                     one.insert(field.name.clone(), field.default_val.clone());
                 }

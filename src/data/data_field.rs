@@ -225,16 +225,17 @@ impl FieldInfo {
         grid.show(ui, |ui| {
             for one in field {
                 let val = map.get(&one.name);
-                let old = match val {
-                    Some(s) => s.clone(),
-                    None => String::new(),
+                
+                let (inited, old) = match val {
+                    Some(s) => (true, s.clone()),
+                    None => (false, String::new()),
                 };
                 let mut new = old.clone();
                 let f = one.create_ui(&mut new, ui, false, &String::new(), idx);
                 if f {
                     click_flag = true;
                 }
-                if old != new {
+                if old != new || !inited {
                     map.insert(one.name.clone(), new);
                 }
                 ui.end_row();

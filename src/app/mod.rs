@@ -1093,9 +1093,9 @@ impl SkillEditorApp {
                         grid.show(ui, |ui| {
                             for (idx, one) in vec {
                                 let val = map.get(&one.name);
-                                let old = match val {
-                                    Some(s) => s.clone(),
-                                    None => String::new(),
+                                let (inited, old) = match val {
+                                    Some(s) => (true, s.clone()),
+                                    None => (false, String::new()),
                                 };
                                 let mut new = old.clone();
 
@@ -1105,7 +1105,7 @@ impl SkillEditorApp {
                                     click_flag = true;
                                     click_idx = idx - 1;
                                 }
-                                if old != new {
+                                if old != new || !inited {
                                     if changed.is_some() {
                                         changed_map.insert(one.name.clone(), new.clone());
                                     } else {
