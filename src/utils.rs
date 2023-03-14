@@ -339,11 +339,11 @@ where
     for r in 4..row + 1 {
         let mut one = json!({});
         let map = one.as_object_mut().unwrap();
+        let first_col = get_cell_value(&sheet, 1, r);
         for c in 1..col + 1 {
             let data_type = get_cell_value(&sheet, c, 2);
             let key = get_cell_value(&sheet, c, 3);
             let value = get_cell_value(&sheet, c, r);
-
             check_if!(key.is_empty(), continue);
 
             let val = load_one_cell(&value, &data_type)?;
@@ -353,6 +353,7 @@ where
             // };
             map.insert(key, val);
         }
+        if first_col.is_empty() {continue;}
         list.push(one);
     }
     let ret: T = serde_json::from_value(ret)?;

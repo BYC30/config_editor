@@ -312,6 +312,11 @@ impl DataTable {
                 println!("load excel sheet: {:?}", data);
             }
             for mut one in data {
+                let key_val = utils::map_get_string(&one, &self.key_name, "");
+                if key_val.is_empty() {
+                    continue;
+                }
+
                 for field in &self.info {
                     check_if!(one.contains_key(&field.name), continue);
                     check_if!(field.default_val.is_empty(), continue);
