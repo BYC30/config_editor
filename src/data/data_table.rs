@@ -32,6 +32,7 @@ pub struct DataTable {
     pub post_save_exec: String,
     pub reload_editor: bool,
     pub data_hash: String,
+    pub data_str: String,
 
     // UI 相关
     pub cur: i32,
@@ -72,6 +73,7 @@ impl DataTable {
             post_save_exec,
             reload_editor: false,
             data_hash: String::new(),
+            data_str: String::new(),
 
             info,
             data: Vec::new(),
@@ -92,10 +94,18 @@ impl DataTable {
 }
 
 impl DataTable {
-    fn calc_data_hash(&self) -> String {
-        let json = serde_json::to_string(&self.data).unwrap();
-        let hash = format!("{:x}", md5::compute(&json));
-        return hash;
+    fn calc_data_hash(&self) -> (String, String) {
+        let mut s = String::new();
+        for one in &self.data {
+            let mut keys = one.keys().collect::<Vec<&String>>();
+            keys.sort();
+            for key in keys {
+                s.push_str(format!("{}={}", key.to_lowercase(), one[key].to_lowercase()).as_str());
+            }
+        }
+
+        let hash = format!("{:x}", md5::compute(&s));
+        return (s, hash);
     }
 
     fn _load_data(&mut self) -> Result<()> {
@@ -196,7 +206,7 @@ impl DataTable {
     }
 
     pub fn save_json(&mut self, force: bool) -> Result<(bool, String)> {
-        let hash = self.calc_data_hash();
+        let (s, hash) = self.calc_data_hash();
         if !force && hash == self.data_hash {
             return Ok((false, "未改变, 跳过".to_string()));
         }
@@ -229,6 +239,7 @@ impl DataTable {
         }
 
         self.data_hash = hash;
+        self.data_str = s;
         let mut ret_msg = "成功".to_string();
         if !msg.is_empty() {
             ret_msg = format!("{} - {}", ret_msg, msg);
@@ -326,7 +337,7 @@ impl DataTable {
                 self.data.push(one);
             }
         }
-        self.data_hash = self.calc_data_hash();
+        (self.data_str, self.data_hash) = self.calc_data_hash();
         Ok(())
     }
 
