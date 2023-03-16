@@ -83,6 +83,7 @@ struct MenuInfo {
     name: String,
     exe: String,
     hotkey: Option<egui::Key>,
+    exec_after_save: bool,
 }
 
 impl MenuInfo {
@@ -219,11 +220,13 @@ impl SkillEditorApp {
 
     pub fn save_data(&mut self, force: bool) {
         let mut reload = false;
+        let mut save = false;
         for (_, data_table) in &mut self.data_table {
             let result = data_table.save_json(force);
             match result {
                 Ok((changed, msg)) => {
                     if changed {
+                        save = true;
                         utils::toast(
                             &mut self.toasts,
                             "SUCC",
@@ -249,6 +252,13 @@ impl SkillEditorApp {
             self.load_config(true);
             utils::toast(&mut self.toasts, "SUCC", "重载配置成功");
         }
+        if save {
+            for menu in &self.menus {
+                if menu.exec_after_save {
+                    menu.trigger();
+                }
+            }
+        }
     }
 
     fn load_menu_config(&mut self) -> Result<()> {
@@ -258,6 +268,9 @@ impl SkillEditorApp {
             name: String,
             exe: String,
             hotkey: String,
+
+            #[serde(default)]
+            exec_after_save: bool,
         }
 
         let data: Vec<MenuConfig> =
@@ -271,6 +284,7 @@ impl SkillEditorApp {
                 name: one.name,
                 exe: one.exe,
                 hotkey,
+                exec_after_save: one.exec_after_save,
             });
         }
 
